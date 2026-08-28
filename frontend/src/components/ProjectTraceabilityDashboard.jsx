@@ -2,37 +2,45 @@ import React, { useState, useMemo } from 'react';
 import { 
   FileText, Database, Layers, CheckCircle2, AlertTriangle, AlertCircle, 
   Search, ShieldAlert, Download, Sparkles, Filter, ChevronRight, Activity,
-  GitPullRequest, Clock, Server, Check, X, Network, Link2
+  GitPullRequest, Clock, Server, Check, X, Network, Link2, ArrowRight
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 
 export default function ProjectTraceabilityDashboard({ result }) {
+  const [viewTab, setViewTab] = useState('matrix'); // 'matrix' | 'chains' | 'graph'
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedChain, setSelectedChain] = useState(null);
 
   const summary = result.summary || {};
   const matrix = result.traceability_matrix || [];
+  const chains = result.traceability_chains || [];
   const graph = result.traceability_graph || { nodes: [], edges: [] };
   const topConflicts = result.top_conflicts || [];
   const topUnmapped = result.top_unmapped || [];
   const crImpacts = result.change_request_impacts || [];
   const momLinks = result.meeting_minutes_links || [];
   const docList = result.documents || [];
+  const pathCoverage = summary.path_coverage || {};
 
+  // Filter pairwise direct relationship rows
   const filteredMatrix = useMemo(() => {
     return matrix.filter(row => {
-      const matchFilter = statusFilter === 'All' || row.overall_status === statusFilter;
+      const matchFilter = statusFilter === 'All' || row.status === statusFilter;
       const term = searchQuery.toLowerCase();
       
-      const brdMatch = row.brd && (row.brd.id.toLowerCase().includes(term) || row.brd.text.toLowerCase().includes(term));
-      const srsMatch = row.srs && (row.srs.id.toLowerCase().includes(term) || row.srs.text.toLowerCase().includes(term));
-      const frdMatch = row.frd && (row.frd.id.toLowerCase().includes(term) || row.frd.text.toLowerCase().includes(term));
-      const usMatch = row.user_story && (row.user_story.id.toLowerCase().includes(term) || row.user_story.text.toLowerCase().includes(term));
-      const tcMatch = row.test_case && (row.test_case.id.toLowerCase().includes(term) || row.test_case.text.toLowerCase().includes(term));
-      const evMatch = row.evidence_chain && row.evidence_chain.some(e => e.toLowerCase().includes(term));
+      const sId = row.source_artifact ? row.source_artifact.toLowerCase() : '';
+      const sDoc = row.source_document ? row.source_document.toLowerCase() : '';
+      const sText = row.source_text ? row.source_text.toLowerCase() : '';
+      const tId = row.target_artifact ? row.target_artifact.toLowerCase() : '';
+      const tDoc = row.target_document ? row.target_document.toLowerCase() : '';
+      const tText = row.target_text ? row.target_text.toLowerCase() : '';
+      const rel = row.relationship ? row.relationship.toLowerCase() : '';
+      const ev = row.evidence ? row.evidence.toLowerCase() : '';
 
-      return matchFilter && (brdMatch || srsMatch || frdMatch || usMatch || tcMatch || evMatch || term === '');
+      const matchSearch = term === '' || sId.includes(term) || sDoc.includes(term) || sText.includes(term) || 
+                          tId.includes(term) || tDoc.includes(term) || tText.includes(term) || rel.includes(term) || ev.includes(term);
+
+      return matchFilter && matchSearch;
     });
   }, [matrix, statusFilter, searchQuery]);
 
@@ -44,29 +52,48 @@ export default function ProjectTraceabilityDashboard({ result }) {
     switch (status) {
       case 'MATCHED':
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1.5 w-fit">
-            <CheckCircle2 className="w-3.5 h-3.5" /> MATCHED
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit">
+            <CheckCircle2 className="w-3 h-3" /> MATCHED
           </span>
         );
       case 'PARTIAL':
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 w-fit">
-            <AlertTriangle className="w-3.5 h-3.5" /> PARTIAL
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1 w-fit">
+            <AlertTriangle className="w-3 h-3" /> PARTIAL
           </span>
         );
       case 'CONFLICT':
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center gap-1.5 w-fit">
-            <AlertCircle className="w-3.5 h-3.5" /> CONFLICT
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center gap-1 w-fit">
+            <AlertCircle className="w-3 h-3" /> CONFLICT
           </span>
         );
       case 'UNMAPPED':
       default:
         return (
-          <span className="px-3 py-1 rounded-full text-xs font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1.5 w-fit">
-            <X className="w-3.5 h-3.5" /> UNMAPPED
+          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1 w-fit">
+            <X className="w-3 h-3" /> UNMAPPED
           </span>
         );
+    }
+  };
+
+  const getRelBadge = (rel) => {
+    switch (rel) {
+      case 'TRACEABLE_TO':
+        return 'bg-blue-500/10 text-blue-300 border-blue-500/30';
+      case 'IMPLEMENTED_BY':
+        return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
+      case 'REALIZED_BY':
+        return 'bg-purple-500/10 text-purple-300 border-purple-500/30';
+      case 'VERIFIED_BY':
+        return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+      case 'AFFECTS':
+        return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+      case 'RELATED_TO':
+        return 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30';
+      default:
+        return 'bg-slate-800 text-slate-400 border-slate-700';
     }
   };
 
@@ -74,17 +101,17 @@ export default function ProjectTraceabilityDashboard({ result }) {
     <div className="bg-transparent min-h-screen py-8 text-slate-100 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* Top Header & Actions */}
+        {/* Top Header & Export */}
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 print:hidden">
           <div>
-            <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-blue text-xs font-mono font-bold uppercase mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Phase 2 Project Intelligence
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-blue text-xs font-mono font-bold uppercase mb-2">
+              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Mode 2: Project Intelligence
             </div>
             <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              Cross-Document <span className="text-gradient">Traceability Matrix</span>
+              ReqVision AI — <span className="text-gradient">Software Intelligence Report</span>
             </h1>
             <p className="text-slate-400 mt-1 text-sm sm:text-base font-medium">
-              Multi-document semantic verification across BRD → SRS → FRD → User Stories → Test Cases
+              Cross-Document Lexical Traceability Analysis across all {summary.total_documents || 7} project artifacts
             </p>
           </div>
 
@@ -97,12 +124,12 @@ export default function ProjectTraceabilityDashboard({ result }) {
           </button>
         </div>
 
-        {/* 1. Project High-Level Metrics Strip */}
+        {/* 1. Project High-Level Metrics Strip (Zero baseline/updated drift numbers) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Total Documents</div>
+            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Project Documents</div>
             <div className="text-2xl font-black text-white mt-1">{summary.total_documents || docList.length}</div>
-            <div className="text-[10px] text-slate-400 mt-1">Project artifacts</div>
+            <div className="text-[10px] text-slate-400 mt-1">Single collection</div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
@@ -118,9 +145,9 @@ export default function ProjectTraceabilityDashboard({ result }) {
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Fully Matched</div>
+            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Matched Links</div>
             <div className="text-2xl font-black text-emerald-400 mt-1">{summary.status_breakdown?.MATCHED || 0}</div>
-            <div className="text-[10px] text-emerald-400/80 mt-1">Verified chains</div>
+            <div className="text-[10px] text-emerald-400/80 mt-1">Verified relationships</div>
           </div>
 
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
@@ -136,12 +163,38 @@ export default function ProjectTraceabilityDashboard({ result }) {
           </div>
         </div>
 
-        {/* 2. Top Conflict & Unmapped Alerts (If Any) */}
+        {/* 2. Path-Specific Traceability Coverage Bars */}
+        <div className="mb-8 p-6 rounded-3xl bg-slate-900/40 border border-slate-800 backdrop-blur-xl">
+          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
+            <Layers className="w-4 h-4 text-neon-blue" />
+            Engineering Traceability Path Coverage
+          </h3>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
+              <div className="text-[10px] font-mono text-slate-400 uppercase">BRD → SRS (Traceable)</div>
+              <div className="text-lg font-black text-blue-400 mt-1">{pathCoverage.brd_to_srs_coverage || 'N/A'}</div>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
+              <div className="text-[10px] font-mono text-slate-400 uppercase">SRS → FRD (Implemented)</div>
+              <div className="text-lg font-black text-cyan-400 mt-1">{pathCoverage.srs_to_frd_coverage || 'N/A'}</div>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
+              <div className="text-[10px] font-mono text-slate-400 uppercase">SRS → User Story (Realized)</div>
+              <div className="text-lg font-black text-purple-400 mt-1">{pathCoverage.srs_to_user_story_coverage || 'N/A'}</div>
+            </div>
+            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
+              <div className="text-[10px] font-mono text-slate-400 uppercase">User Story → Test Case (Verified)</div>
+              <div className="text-lg font-black text-emerald-400 mt-1">{pathCoverage.user_story_to_test_case_coverage || 'N/A'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* 3. Top Conflicts & Unmapped Alerts */}
         {topConflicts.length > 0 && (
-          <div className="mb-8 p-6 rounded-3xl bg-rose-950/20 border border-rose-500/40 backdrop-blur-xl shadow-xl shadow-rose-950/20">
+          <div className="mb-8 p-6 rounded-3xl bg-rose-950/20 border border-rose-500/40 backdrop-blur-xl shadow-xl">
             <div className="flex items-center gap-2.5 text-rose-400 font-black text-lg mb-3">
               <ShieldAlert className="w-5 h-5" />
-              <span>Critical Requirement Contradiction Detected ({topConflicts.length})</span>
+              <span>Critical Requirement Contradictions Detected ({topConflicts.length})</span>
             </div>
             <div className="space-y-3">
               {topConflicts.map((conf, idx) => (
@@ -152,7 +205,7 @@ export default function ProjectTraceabilityDashboard({ result }) {
                   </div>
                   <p className="text-slate-300 text-xs mb-2 italic">"{conf.source_text}"</p>
                   <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-900/40 text-rose-200 text-xs font-semibold">
-                    <strong>Contradiction Evidence:</strong> {conf.reason}
+                    <strong>Contradiction Reason:</strong> {conf.reason}
                   </div>
                 </div>
               ))}
@@ -160,173 +213,258 @@ export default function ProjectTraceabilityDashboard({ result }) {
           </div>
         )}
 
-        {/* 3. Document Collection Overview */}
-        <div className="mb-8 p-6 rounded-3xl bg-slate-900/40 border border-slate-800 backdrop-blur-xl">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="text-base font-bold text-white flex items-center gap-2">
-              <Database className="w-4 h-4 text-neon-blue" />
-              Project Document Artifacts Overview
-            </h3>
-            <span className="text-xs font-mono text-slate-400">Zero Baseline/Updated Partitioning</span>
+        {topUnmapped.length > 0 && (
+          <div className="mb-8 p-6 rounded-3xl bg-amber-950/20 border border-amber-500/30 backdrop-blur-xl">
+            <div className="flex items-center gap-2.5 text-amber-300 font-black text-base mb-3">
+              <AlertTriangle className="w-5 h-5" />
+              <span>Unmapped Requirements / Specification Gaps ({topUnmapped.length})</span>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              {topUnmapped.map((unm, idx) => (
+                <div key={idx} className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs">
+                  <div className="flex items-center justify-between mb-1">
+                    <span className="font-mono font-bold text-amber-300">{unm.artifact_id}</span>
+                    <span className="text-[10px] text-slate-500">{unm.document_name}</span>
+                  </div>
+                  <p className="text-slate-300 mb-1.5 italic">"{unm.text}"</p>
+                  <span className="text-[11px] text-amber-400/80 font-medium block">Gap: {unm.reason}</span>
+                </div>
+              ))}
+            </div>
           </div>
+        )}
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
-            {Object.entries(summary.document_types || {}).map(([type, count]) => (
-              <div key={type} className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800/80 text-center">
-                <span className="text-xs font-mono font-bold text-slate-300 block">{type}</span>
-                <span className="text-xl font-black text-white mt-1 block">{count}</span>
-                <span className="text-[10px] text-slate-500 font-medium">Artifacts</span>
+        {/* 4. Tab Selector: Traceability Matrix vs. Traceability Chains vs. Traceability Graph */}
+        <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800 mb-6 w-fit">
+          <button
+            onClick={() => setViewTab('matrix')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewTab === 'matrix' ? 'bg-neon-blue/20 text-white border border-neon-blue/40 shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Database className="w-4 h-4 text-neon-blue" />
+            Source → Target Matrix ({matrix.length})
+          </button>
+          <button
+            onClick={() => setViewTab('chains')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewTab === 'chains' ? 'bg-purple-500/20 text-white border border-purple-500/40 shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Layers className="w-4 h-4 text-purple-400" />
+            End-to-End Chains ({chains.length})
+          </button>
+          <button
+            onClick={() => setViewTab('graph')}
+            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
+              viewTab === 'graph' ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-sm' : 'text-slate-400 hover:text-white'
+            }`}
+          >
+            <Network className="w-4 h-4 text-indigo-400" />
+            Traceability Graph ({graph.edges?.length || 0} Edges)
+          </button>
+        </div>
+
+        {/* TAB 1: Source -> Target Traceability Matrix */}
+        {viewTab === 'matrix' && (
+          <div className="mb-12 rounded-3xl bg-slate-950/90 border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-2xl">
+            {/* Filter bar */}
+            <div className="p-5 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60">
+              <div>
+                <h2 className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-2">
+                  <Database className="w-5 h-5 text-neon-blue" />
+                  Pairwise Traceability Matrix
+                </h2>
+                <p className="text-xs text-slate-400">Explicit direct mappings with lexical evidence</p>
+              </div>
+
+              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
+                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+                  {['All', 'MATCHED', 'PARTIAL', 'CONFLICT', 'UNMAPPED'].map(st => (
+                    <button
+                      key={st}
+                      onClick={() => setStatusFilter(st)}
+                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                        statusFilter === st ? 'bg-neon-blue/20 text-white border border-neon-blue/40' : 'text-slate-400 hover:text-white'
+                      }`}
+                    >
+                      {st}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="relative flex-1 sm:w-60">
+                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    placeholder="Search artifact or keyword..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-neon-blue/60"
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Matrix Table */}
+            <div className="overflow-x-auto">
+              <table className="w-full text-left border-collapse text-xs sm:text-sm">
+                <thead>
+                  <tr className="bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
+                    <th className="p-3.5 pl-6">Source Artifact</th>
+                    <th className="p-3.5">Relationship</th>
+                    <th className="p-3.5">Target Artifact</th>
+                    <th className="p-3.5">Status</th>
+                    <th className="p-3.5">Lexical Sim</th>
+                    <th className="p-3.5">Confidence</th>
+                    <th className="p-3.5 pr-6">Evidence / Reason</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-800/60">
+                  {filteredMatrix.map((row, idx) => (
+                    <tr key={idx} className="hover:bg-slate-900/50 transition-colors">
+                      {/* Source Artifact */}
+                      <td className="p-3.5 pl-6 align-top">
+                        <div className="flex items-center gap-1.5">
+                          <span className="font-mono font-bold text-neon-blue">{row.source_artifact}</span>
+                          <span className="text-[10px] font-mono text-slate-500">[{row.source_type}]</span>
+                        </div>
+                        <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.source_text}>{row.source_text}</span>
+                      </td>
+
+                      {/* Relationship */}
+                      <td className="p-3.5 align-top">
+                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${getRelBadge(row.relationship)}`}>
+                          {row.relationship}
+                        </span>
+                      </td>
+
+                      {/* Target Artifact */}
+                      <td className="p-3.5 align-top">
+                        {row.target_artifact !== '—' ? (
+                          <div>
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-mono font-bold text-indigo-300">{row.target_artifact}</span>
+                              <span className="text-[10px] font-mono text-slate-500">[{row.target_type}]</span>
+                            </div>
+                            <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.target_text}>{row.target_text}</span>
+                          </div>
+                        ) : (
+                          <span className="text-slate-600 font-mono">—</span>
+                        )}
+                      </td>
+
+                      {/* Status */}
+                      <td className="p-3.5 align-top">
+                        {getStatusBadge(row.status)}
+                      </td>
+
+                      {/* Lexical Sim */}
+                      <td className="p-3.5 align-top font-mono text-slate-300">
+                        {row.similarity > 0 ? (
+                          <span className="font-bold text-xs">{row.similarity.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+
+                      {/* Confidence */}
+                      <td className="p-3.5 align-top font-mono text-xs">
+                        <span className={row.confidence === 'High' ? 'text-emerald-400 font-bold' : row.confidence === 'Medium' ? 'text-amber-400 font-semibold' : 'text-slate-500'}>
+                          {row.confidence}
+                        </span>
+                      </td>
+
+                      {/* Evidence */}
+                      <td className="p-3.5 pr-6 align-top text-xs text-slate-400 italic">
+                        {row.evidence}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        )}
+
+        {/* TAB 2: End-to-End Traceability Chains */}
+        {viewTab === 'chains' && (
+          <div className="mb-12 space-y-4">
+            {chains.map((chain, idx) => (
+              <div key={chain.chain_id || idx} className="p-5 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-md">
+                <div className="flex items-center justify-between mb-3">
+                  <span className="font-mono font-bold text-xs text-neon-blue">{chain.chain_id}</span>
+                  {getStatusBadge(chain.overall_status)}
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-mono mb-3">
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="text-amber-300 font-bold block">{chain.brd?.id || '—'}</span>
+                    <span className="text-[10px] text-slate-400">BRD</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="text-blue-300 font-bold block">{chain.srs?.id || '—'}</span>
+                    <span className="text-[10px] text-slate-400">SRS</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="text-cyan-300 font-bold block">{chain.frd?.id || '—'}</span>
+                    <span className="text-[10px] text-slate-400">FRD</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="text-purple-300 font-bold block">{chain.user_story?.id || '—'}</span>
+                    <span className="text-[10px] text-slate-400">User Story</span>
+                  </div>
+                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
+                    <span className="text-emerald-300 font-bold block">{chain.test_case?.id || '—'}</span>
+                    <span className="text-[10px] text-slate-400">Test Case</span>
+                  </div>
+                </div>
+
+                {chain.evidence_chain && chain.evidence_chain.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 text-[11px] text-slate-400">
+                    <strong>Trace Evidence:</strong> {chain.evidence_chain.join(' → ')}
+                  </div>
+                )}
               </div>
             ))}
           </div>
-        </div>
+        )}
 
-        {/* 4. Traceability Matrix Table */}
-        <div className="mb-12 rounded-3xl bg-slate-950/90 border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-2xl">
-          
-          {/* Controls Bar */}
-          <div className="p-6 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60">
-            <div>
-              <h2 className="text-lg sm:text-xl font-black text-white tracking-tight flex items-center gap-2">
-                <Network className="w-5 h-5 text-neon-blue" />
-                End-to-End Traceability Matrix
-              </h2>
-              <p className="text-xs text-slate-400 mt-0.5">Showing {filteredMatrix.length} discovered requirement chains</p>
-            </div>
+        {/* TAB 3: Traceability Graph Network */}
+        {viewTab === 'graph' && (
+          <div className="mb-12 p-6 rounded-3xl bg-slate-950/90 border border-slate-800 shadow-2xl">
+            <h3 className="text-base font-bold text-white mb-2 flex items-center gap-2">
+              <Network className="w-5 h-5 text-indigo-400" />
+              Traceability Graph Discovered Relationships ({graph.edges?.length || 0})
+            </h3>
+            <p className="text-xs text-slate-400 mb-6">Interactive directed dependency network discovered by lexical verification</p>
 
-            <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-              {/* Status Filter */}
-              <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
-                {['All', 'MATCHED', 'PARTIAL', 'CONFLICT', 'UNMAPPED'].map(st => (
-                  <button
-                    key={st}
-                    onClick={() => setStatusFilter(st)}
-                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                      statusFilter === st 
-                        ? 'bg-neon-blue/20 text-white border border-neon-blue/40 shadow-sm' 
-                        : 'text-slate-400 hover:text-slate-200'
-                    }`}
-                  >
-                    {st}
-                  </button>
-                ))}
-              </div>
-
-              {/* Search Box */}
-              <div className="relative flex-1 sm:w-64">
-                <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                <input
-                  type="text"
-                  placeholder="Search requirement ID or text..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-neon-blue/60"
-                />
-              </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {graph.edges?.map((edge, i) => (
+                <div key={i} className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="font-mono text-neon-blue font-bold truncate max-w-[120px]" title={edge.source}>{edge.source.split('::')[1] || edge.source}</span>
+                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${getRelBadge(edge.relationship)}`}>
+                      {edge.relationship}
+                    </span>
+                    <span className="font-mono text-indigo-300 font-bold truncate max-w-[120px]" title={edge.target}>{edge.target.split('::')[1] || edge.target}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/50">
+                    <span>Status: {edge.status}</span>
+                    <span>Lexical Sim: {edge.similarity?.toFixed(2)}</span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
-
-          {/* Table Container */}
-          <div className="overflow-x-auto">
-            <table className="w-full text-left border-collapse text-xs sm:text-sm">
-              <thead>
-                <tr className="bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-                  <th className="p-4 pl-6">BRD Artifact</th>
-                  <th className="p-4">SRS Requirement</th>
-                  <th className="p-4">FRD Spec</th>
-                  <th className="p-4">User Story</th>
-                  <th className="p-4">Test Case</th>
-                  <th className="p-4 pr-6">Status & Evidence</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-800/60">
-                {filteredMatrix.map((row, idx) => (
-                  <tr 
-                    key={row.chain_id || idx}
-                    onClick={() => setSelectedChain(row)}
-                    className="hover:bg-slate-900/50 transition-colors cursor-pointer group"
-                  >
-                    {/* BRD Cell */}
-                    <td className="p-4 pl-6 align-top">
-                      {row.brd ? (
-                        <div>
-                          <span className="font-mono font-bold text-amber-300 block">{row.brd.id}</span>
-                          <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.brd.text}>{row.brd.text}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600 font-mono">—</span>
-                      )}
-                    </td>
-
-                    {/* SRS Cell */}
-                    <td className="p-4 align-top">
-                      {row.srs ? (
-                        <div>
-                          <span className="font-mono font-bold text-blue-300 block">{row.srs.id}</span>
-                          <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.srs.text}>{row.srs.text}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600 font-mono">—</span>
-                      )}
-                    </td>
-
-                    {/* FRD Cell */}
-                    <td className="p-4 align-top">
-                      {row.frd ? (
-                        <div>
-                          <span className="font-mono font-bold text-cyan-300 block">{row.frd.id}</span>
-                          <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.frd.text}>{row.frd.text}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600 font-mono">—</span>
-                      )}
-                    </td>
-
-                    {/* User Story Cell */}
-                    <td className="p-4 align-top">
-                      {row.user_story ? (
-                        <div>
-                          <span className="font-mono font-bold text-purple-300 block">{row.user_story.id}</span>
-                          <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.user_story.text}>{row.user_story.text}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600 font-mono">—</span>
-                      )}
-                    </td>
-
-                    {/* Test Case Cell */}
-                    <td className="p-4 align-top">
-                      {row.test_case ? (
-                        <div>
-                          <span className="font-mono font-bold text-emerald-300 block">{row.test_case.id}</span>
-                          <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.test_case.text}>{row.test_case.text}</span>
-                        </div>
-                      ) : (
-                        <span className="text-slate-600 font-mono">—</span>
-                      )}
-                    </td>
-
-                    {/* Status & Evidence Cell */}
-                    <td className="p-4 pr-6 align-top">
-                      <div className="flex flex-col gap-1.5">
-                        {getStatusBadge(row.overall_status)}
-                        {row.evidence_chain && row.evidence_chain.length > 0 && (
-                          <span className="text-[11px] text-slate-400 line-clamp-1 italic" title={row.evidence_chain.join(' | ')}>
-                            {row.evidence_chain[0]}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
+        )}
 
         {/* 5. Supporting Artifact Impacts: Change Requests & Meeting Minutes */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          
           {/* Change Request Impact Links */}
           <div className="p-6 rounded-3xl bg-slate-950/80 border border-slate-800 backdrop-blur-xl">
             <div className="flex items-center gap-2.5 mb-4">
@@ -348,13 +486,13 @@ export default function ProjectTraceabilityDashboard({ result }) {
                       </span>
                     </div>
                     <p className="text-slate-300 font-medium mb-2">"{cr.cr_text}"</p>
-                    {cr.affected_req_id ? (
+                    {cr.affected_req_id !== '—' ? (
                       <div className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-2">
                         <Link2 className="w-3.5 h-3.5 text-neon-blue shrink-0" />
                         <span><strong>Affects:</strong> {cr.affected_doc} [{cr.affected_req_id}]</span>
                       </div>
                     ) : (
-                      <span className="text-slate-500 italic">No specific requirement affected</span>
+                      <span className="text-slate-500 italic">No specific software requirement affected (Unmapped)</span>
                     )}
                   </div>
                 ))}
@@ -385,7 +523,7 @@ export default function ProjectTraceabilityDashboard({ result }) {
                       </span>
                     </div>
                     <p className="text-slate-300 font-medium mb-2">"{mom.mom_text}"</p>
-                    {mom.referenced_req_id ? (
+                    {mom.referenced_req_id !== '—' ? (
                       <div className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-2">
                         <Link2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
                         <span><strong>References:</strong> {mom.referenced_doc} [{mom.referenced_req_id}]</span>
@@ -400,7 +538,6 @@ export default function ProjectTraceabilityDashboard({ result }) {
               <p className="text-xs text-slate-500 italic">No Meeting Minutes uploaded in collection.</p>
             )}
           </div>
-
         </div>
 
       </div>

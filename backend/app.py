@@ -7,7 +7,7 @@ from api.routes.extract import extract_bp
 
 def create_app():
     app = Flask(__name__)
-    CORS(app)
+    CORS(app, resources={r"/api/*": {"origins": ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:5001", "http://127.0.0.1:5001", "http://localhost:3000"]}}, supports_credentials=True)
     
     app.register_blueprint(compare_bp, url_prefix='/api')
     app.register_blueprint(project_bp, url_prefix='/api/project')

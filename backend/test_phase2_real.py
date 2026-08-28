@@ -18,7 +18,7 @@ print("==================================================")
 print("PHASE 2 REAL ACCEPTANCE TEST — 7 TEST DOCUMENTS")
 print("==================================================")
 
-# 1. Test Multi-File Upload & Content-Based Classification
+# 1. Multi-File Upload & Content-Based Classification
 files = []
 for fname in filenames:
     fpath = os.path.join(doc_dir, fname)
@@ -30,13 +30,13 @@ assert resp_detect.status_code == 200, f"Detect failed: {resp_detect.text}"
 detect_data = resp_detect.json()
 
 print(f"Detect Success: {detect_data['success']}")
-print(f"Total Documents: {detect_data['summary']['total_documents']}")
-print(f"Total Artifacts: {detect_data['summary']['total_artifacts_extracted']}")
+print(f"Total Documents Detected: {detect_data['summary']['total_documents']}")
+print(f"Total Artifacts Extracted: {detect_data['summary']['total_artifacts_extracted']}")
 
 for doc in detect_data['documents']:
     print(f"  - [{doc['document_type']}] {doc['filename']}: {doc['artifact_label']} (Confidence: {doc['confidence_score']}%)")
 
-# 2. Test Phase 2 Cross-Document Traceability Verification
+# 2. Phase 2 Cross-Document Traceability Verification
 print(f"\n2. Executing Cross-Document Verification on /api/project/verify ...")
 resp_verify = requests.post(f"{base_url}/api/project/verify", json={"documents": detect_data['documents']})
 assert resp_verify.status_code == 200, f"Verify failed: {resp_verify.text}"
@@ -44,18 +44,21 @@ verify_data = resp_verify.json()
 
 summary = verify_data['summary']
 print(f"\n--- VERIFICATION SUMMARY ---")
-print(f"Mode: {verify_data.get('mode')}")
+print(f"Title: {verify_data.get('title')}")
+print(f"Analysis Type: {verify_data.get('analysis_type')}")
 print(f"Total Documents: {summary['total_documents']}")
 print(f"Total Artifacts: {summary['total_artifacts']}")
-print(f"Coverage Percentage: {summary['coverage_percentage']}%")
+print(f"Total Pairwise Relationships: {summary['total_relationships']}")
+print(f"Overall Traceability Coverage: {summary['coverage_percentage']}%")
 print(f"Status Breakdown: {summary['status_breakdown']}")
-print(f"BRD -> SRS Mappings: {summary['brd_to_srs_mappings']}")
-print(f"SRS -> FRD Mappings: {summary['srs_to_frd_mappings']}")
-print(f"SRS -> User Story Mappings: {summary['srs_to_user_story_mappings']}")
-print(f"User Story -> Test Case Mappings: {summary['user_story_to_test_case_mappings']}")
+print(f"Path Coverage Breakdown: {json.dumps(summary['path_coverage'], indent=2)}")
 
-print(f"\n--- TRACEABILITY CHAINS (Sample) ---")
-for chain in verify_data['traceability_matrix'][:5]:
+print(f"\n--- SOURCE -> TARGET TRACEABILITY MATRIX (Sample Rows) ---")
+for rel in verify_data['traceability_matrix'][:8]:
+    print(f"  [{rel['source_type']}] {rel['source_artifact']} --({rel['relationship']})--> [{rel['target_type']}] {rel['target_artifact']} | Status: {rel['status']} | Sim: {rel['similarity']:.2f} | Conf: {rel['confidence']}")
+
+print(f"\n--- END-TO-END TRACEABILITY CHAINS (Sample) ---")
+for chain in verify_data['traceability_chains'][:5]:
     brd = chain['brd']['id'] if chain['brd'] else '—'
     srs = chain['srs']['id'] if chain['srs'] else '—'
     frd = chain['frd']['id'] if chain['frd'] else '—'
@@ -73,13 +76,13 @@ for u in verify_data['top_unmapped']:
 
 print(f"\n--- CHANGE REQUEST IMPACTS ---")
 for cr in verify_data['change_request_impacts']:
-    print(f"  - {cr['cr_id']} -> Affected: {cr['affected_doc']} [{cr['affected_req_id']}] (Sim: {cr['similarity']})")
+    print(f"  - {cr['cr_id']} -> Affected: {cr['affected_doc']} [{cr['affected_req_id']}] | Status: {cr['status']} (Sim: {cr['similarity']:.2f})")
 
-print(f"\n--- MEETING MINUTES LINKS ---")
+print(f"\n--- MEETING MINUTES GOVERNANCE LINKS ---")
 for mom in verify_data['meeting_minutes_links']:
-    print(f"  - {mom['mom_id']} -> References: {mom['referenced_doc']} [{mom['referenced_req_id']}]")
+    print(f"  - {mom['mom_id']} -> References: {mom['referenced_doc']} [{mom['referenced_req_id']}] | Status: {mom['status']}")
 
-# 3. Test V1 Regression Safety
+# 3. Test V1 Mode Regression Safety
 print(f"\n3. Testing V1 Mode Regression (/api/compare) ...")
 v1_payload = {
     "baseline": [{"name": "SRS_v1.txt", "text": "FR-001 The system shall authenticate users with password.\nFR-002 System shall log transactions."}],
