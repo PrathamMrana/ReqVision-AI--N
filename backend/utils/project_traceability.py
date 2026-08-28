@@ -11,7 +11,7 @@ CONFLICT_RULES = [
         "keywords": ["password", "credential", "auth", "login"],
         "patterns_a": [r"\breversible encryption\b", r"\brecover\s+(?:the\s+)?(?:original\s+)?password\b", r"\bplaintext\b", r"\bcleartext\b"],
         "patterns_b": [r"\bhashing\b", r"\bsalted\b", r"\bone-way\b", r"\boauth\b", r"\bjwt\b", r"\bemail and password\b", r"\bauthenticate\b"],
-        "reason": "Security contradiction: Reversible password storage/recovery contradicts secure credential authentication standards."
+        "reason": "Security contradiction: Reversible password storage/recovery in specification contradicts one-way salted credential verification."
     },
     {
         "domain": "mfa_contradiction",
@@ -29,17 +29,29 @@ CONFLICT_RULES = [
     }
 ]
 
-DOMAIN_SYNONYMS = [
-    {"terms": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password"}},
-    {"terms": {"search", "catalog", "query", "find", "discover", "browse", "index"}},
-    {"terms": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue"}},
-    {"terms": {"role", "roles", "rbac", "permission", "permissions", "access", "authorization", "librarian", "admin"}},
-    {"terms": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf"}},
-    {"terms": {"renew", "renewal", "renewals", "renewing", "extend", "duration"}},
-    {"terms": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "email", "dispatch"}},
-    {"terms": {"audit", "trail", "immutable", "logging", "log", "logs", "transitions", "history"}},
-    {"terms": {"quota", "limit", "maximum", "allowable", "checkout", "loans", "borrow"}}
-]
+DOMAIN_TOPICS = {
+    "search": {"search", "catalog", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
+    "payment": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue", "balance", "gateway", "card", "wallets"},
+    "rbac": {"role", "roles", "rbac", "permission", "permissions", "access", "authorization", "librarian", "admin", "matrix", "restricted"},
+    "reporting": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf", "export", "json", "xml", "printable"},
+    "auth": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile"},
+    "renewals": {"renew", "renewal", "renewals", "renewing", "extend", "duration", "active loan", "hold"},
+    "notifications": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "email", "dispatch", "due date", "push"},
+    "quota_mobile": {"quota", "limit", "maximum", "allowable", "checkout", "loans", "borrow", "mobile", "layout", "browser", "items"},
+    "audit_logging": {"audit", "trail", "immutable", "logging", "log", "logs", "transitions", "history", "postgres", "table", "interceptor"},
+    "tape_archival": {"tape", "magnetic", "archival", "legacy archive"}
+}
+
+def detect_domain_topics(text):
+    """Identifies functional domain topics present in a requirement statement."""
+    t_clean = set(clean_text(text).split())
+    t_raw_lower = text.lower()
+    
+    detected = set()
+    for topic, kws in DOMAIN_TOPICS.items():
+        if any(kw in t_clean or re.search(r'\b' + re.escape(kw) + r'\b', t_raw_lower) for kw in kws):
+            detected.add(topic)
+    return detected
 
 def check_explainable_conflict(text_a, text_b):
     """
@@ -60,10 +72,10 @@ def check_explainable_conflict(text_a, text_b):
                 
     return False, None
 
-
 def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_raw, text_b_raw):
     """
-    Computes explainable lexical similarity using TF-IDF cosine similarity + token overlap with numerical preservation penalty.
+    Computes explainable lexical similarity using TF-IDF cosine similarity + token overlap with domain topic filtering.
+    Prevents false-positive cross-domain matches.
     """
     if not text_a_clean and not text_b_clean:
         return 1.0, "Identical empty content"
@@ -72,6 +84,15 @@ def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_ra
     if text_a_clean.strip() == text_b_clean.strip():
         return 1.0, "Exact lexical match"
 
+    # Domain Topic Compatibility Check
+    topics_a = detect_domain_topics(text_a_raw)
+    topics_b = detect_domain_topics(text_b_raw)
+    
+    # If both have detected topics and share zero topics, reject as cross-domain false positive
+    shared_topics = topics_a.intersection(topics_b)
+    if topics_a and topics_b and not shared_topics:
+        return 0.0, f"Topic mismatch: [{', '.join(topics_a)}] vs [{', '.join(topics_b)}]"
+
     try:
         vecs = vectorizer.transform([text_a_clean, text_b_clean])
         tfidf_sim = float(cosine_similarity(vecs[0:1], vecs[1:2])[0][0])
@@ -79,36 +100,34 @@ def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_ra
         tokens_a = set(text_a_clean.split())
         tokens_b = set(text_b_clean.split())
         
-        # Exact Token Jaccard
-        jaccard = len(tokens_a.intersection(tokens_b)) / len(tokens_a.union(tokens_b)) if tokens_a.union(tokens_b) else 0.0
+        # Stop-word filtered token jaccard
+        boilerplate = {"system", "shall", "platform", "provide", "user", "members", "service", "verify", "test", "scenario", "order", "want", "able", "allow"}
+        meaningful_a = tokens_a - boilerplate
+        meaningful_b = tokens_b - boilerplate
         
-        # Domain Synonyms Overlap Bonus
-        domain_overlap = 0.0
-        matched_domain_concepts = []
-        for group in DOMAIN_SYNONYMS:
-            has_a = bool(tokens_a.intersection(group["terms"]))
-            has_b = bool(tokens_b.intersection(group["terms"]))
-            if has_a and has_b:
-                domain_overlap += 0.25
-                common_concept = list(tokens_a.intersection(group["terms"]))[0]
-                matched_domain_concepts.append(common_concept)
+        jaccard = len(meaningful_a.intersection(meaningful_b)) / len(meaningful_a.union(meaningful_b)) if meaningful_a.union(meaningful_b) else 0.0
         
-        # Numbers penalty
+        # Topic overlap boost
+        topic_boost = 0.30 if shared_topics else 0.0
+        
+        # Numbers penalty if specific numerical limits differ
         nums_a = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text_a_raw))
         nums_b = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text_b_raw))
-        penalty = 0.25 if (nums_a and nums_b and nums_a != nums_b) else 0.0
+        penalty = 0.20 if (nums_a and nums_b and nums_a != nums_b and not shared_topics) else 0.0
         
-        score = max(0.0, min(1.0, ((tfidf_sim * 0.50) + (jaccard * 0.25) + min(domain_overlap, 0.40)) - penalty))
+        score = max(0.0, min(1.0, ((tfidf_sim * 0.45) + (jaccard * 0.25) + topic_boost) - penalty))
         
-        common_tokens = list(tokens_a.intersection(tokens_b)) + matched_domain_concepts
+        common_tokens = list(meaningful_a.intersection(meaningful_b))
+        if shared_topics:
+            common_tokens = list(shared_topics) + common_tokens
         unique_common = list(dict.fromkeys(common_tokens))[:4]
-        evidence = f"Lexical overlap on [{', '.join(unique_common)}] (Score: {score:.2f}, TF-IDF: {tfidf_sim:.2f})"
+        
+        evidence = f"Lexical overlap on [{', '.join(unique_common) if unique_common else 'vocabulary'}] (Score: {score:.2f}, TF-IDF: {tfidf_sim:.2f})"
         return round(score, 4), evidence
     except Exception as e:
         return 0.0, f"Similarity error: {str(e)}"
 
-
-def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.25, min_partial=0.10):
+def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.25, min_partial=0.12):
     """
     Matches a single source artifact against a list of candidate artifacts in downstream document.
     Returns: relationship_record (dict)
@@ -157,7 +176,7 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             best_cand = cand
             best_evidence = evidence
 
-    # Conflict check
+    # Conflict check with direct attribution
     if conflict_cand and best_score >= min_partial:
         return {
             "source_document": source_art["document_name"],
@@ -175,7 +194,7 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "evidence": conflict_reason
         }
 
-    if best_score >= min_match:
+    if best_cand and best_score >= min_match:
         conf = "High" if best_score >= 0.45 else "Medium"
         return {
             "source_document": source_art["document_name"],
@@ -192,7 +211,7 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "confidence": conf,
             "evidence": best_evidence
         }
-    elif best_score >= min_partial:
+    elif best_cand and best_score >= min_partial:
         return {
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
@@ -225,7 +244,6 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "evidence": "No target artifact satisfied minimum lexical match threshold"
         }
 
-
 def analyze_project_documents_traceability(project_documents):
     """
     Executes True Project-Level Cross-Document Traceability across all uploaded documents:
@@ -254,7 +272,6 @@ def analyze_project_documents_traceability(project_documents):
             art_id = art.get("artifact_id") or f"ART-{len(all_artifacts)+1:03d}"
             canonical_key = f"{doc_name}::{art_id}"
             
-            # Prevent duplicate canonical identity extraction
             if canonical_key in seen_canonical_ids:
                 continue
             seen_canonical_ids.add(canonical_key)
@@ -326,7 +343,7 @@ def analyze_project_documents_traceability(project_documents):
     # 5. Change Requests -> Requirements (AFFECTS)
     cr_impacts = []
     for cr in cr_list:
-        rel = match_artifact_to_candidates(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.15, min_partial=0.08)
+        rel = match_artifact_to_candidates(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.18, min_partial=0.08)
         traceability_relationships.append(rel)
         cr_impacts.append({
             "cr_id": cr["artifact_id"],
@@ -342,7 +359,7 @@ def analyze_project_documents_traceability(project_documents):
     # 6. Meeting Minutes -> Artifacts (RELATED_TO)
     mom_links = []
     for mom in mom_list:
-        rel = match_artifact_to_candidates(mom, brd_list + srs_list + cr_list, vectorizer, relationship_type="RELATED_TO", min_match=0.15, min_partial=0.08)
+        rel = match_artifact_to_candidates(mom, brd_list + srs_list + cr_list, vectorizer, relationship_type="RELATED_TO", min_match=0.18, min_partial=0.08)
         traceability_relationships.append(rel)
         mom_links.append({
             "mom_id": mom["artifact_id"],
@@ -448,12 +465,6 @@ def analyze_project_documents_traceability(project_documents):
         chain_statuses = [ev.split('[')[1].split(']')[0] for ev in chain["evidence_chain"] if '[' in ev]
         if "CONFLICT" in chain_statuses:
             overall = "CONFLICT"
-            top_conflicts.append({
-                "source_id": root_art["artifact_id"],
-                "source_doc": root_art["document_name"],
-                "source_text": root_art["text"],
-                "reason": next((ev for ev in chain["evidence_chain"] if "contradiction" in ev.lower()), "Security or behavioral contradiction detected in downstream specifications")
-            })
         elif all(st == "MATCHED" for st in chain_statuses) and len(chain_statuses) >= 2:
             overall = "MATCHED"
         elif any(st in ["MATCHED", "PARTIAL"] for st in chain_statuses):
@@ -469,6 +480,19 @@ def analyze_project_documents_traceability(project_documents):
 
         chain["overall_status"] = overall
         traceability_chains.append(chain)
+
+    # Collect Exact Conflicts from direct relationships
+    for rel in traceability_relationships:
+        if rel["status"] == "CONFLICT":
+            top_conflicts.append({
+                "source_id": rel["source_artifact"],
+                "source_doc": rel["source_document"],
+                "source_text": rel["source_text"],
+                "target_id": rel["target_artifact"],
+                "target_doc": rel["target_document"],
+                "target_text": rel["target_text"],
+                "reason": rel["evidence"]
+            })
 
     # Status counts over all pairwise direct relationships
     status_counts = {
