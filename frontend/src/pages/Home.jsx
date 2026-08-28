@@ -205,29 +205,8 @@ export default function Home() {
           </motion.div>
         </div>
 
-        {/* 2. Animated Statistics */}
-        <motion.div 
-          initial={{ opacity: 0, y: 40 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-24 grid grid-cols-1 sm:grid-cols-3 gap-8 max-w-5xl mx-auto bg-slate-900/80 backdrop-blur-xl p-8 md:p-10 rounded-3xl border border-slate-700 shadow-xl shadow-neon-blue/10"
-        >
-          <div className="text-center">
-            <div className="text-3xl md:text-4xl font-extrabold text-slate-50 mb-2 mt-1">Multi-Source</div>
-            <div className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">BRD · SRS · FRD · CR · QA</div>
-          </div>
-          <div className="text-center">
-            <div className="text-3xl md:text-4xl font-extrabold text-neon-blue mb-2 mt-1">Bi-Directional</div>
-            <div className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">Traceability Matrix</div>
-          </div>
-          <div className="text-center flex flex-col justify-center">
-            <div className="text-3xl md:text-4xl font-extrabold text-gradient font-black tracking-tight mb-2 mt-1">Continuous</div>
-            <div className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">Architectural Assurance</div>
-          </div>
-        </motion.div>
-
-        {/* 3. Live Demo / Upload Box */}
-        <div className="mt-40 scroll-mt-32" ref={demoRef}>
+        {/* 2. Live Demo / Upload Box */}
+        <div className="mt-28 scroll-mt-28" ref={demoRef}>
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-50 tracking-tight">Live Interactive Demo</h2>
             <p className="text-slate-400 mt-3 max-w-2xl mx-auto text-lg">
