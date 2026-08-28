@@ -3,7 +3,8 @@ import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
   Database, Search, Target, ShieldAlert, CheckCircle2, ArrowRight, Zap, 
-  Activity, Clock, FileText, BarChart3, LayoutDashboard, FileOutput, Server, Code, XCircle, BrainCircuit
+  Activity, Clock, FileText, BarChart3, LayoutDashboard, FileOutput, Server, Code, XCircle, BrainCircuit,
+  Sparkles
 } from 'lucide-react';
 import UploadBox from '../components/UploadBox';
 
@@ -87,6 +88,14 @@ export default function Home() {
     demoRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const capabilityTags = [
+    "Multi-Document Intelligence",
+    "Semantic Matching",
+    "Conflict & Risk Detection",
+    "End-to-End Traceability",
+    "Engineering Impact"
+  ];
+
   const features = [
     { icon: <Target className="w-5 h-5" />, title: "Scope Creep Detection" },
     { icon: <Database className="w-5 h-5" />, title: "Cross-Doc Traceability" },
@@ -123,35 +132,53 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-24">
         
-        {/* 1. Hero Section */}
-        <div className="text-center max-w-4xl mx-auto">
+        {/* 1. Hero Section - Locked Copy */}
+        <div className="text-center max-w-5xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: [0, -8, 0] }}
             transition={{ opacity: { duration: 0.5 }, y: { repeat: Infinity, duration: 4, ease: "easeInOut" } }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900 border border-primary-900 text-neon-blue text-sm font-bold mb-8 shadow-sm"
+            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-primary-900 text-neon-blue text-xs sm:text-sm font-extrabold tracking-wider uppercase mb-8 shadow-sm"
           >
-            <Zap className="w-4 h-4 text-accent-500" /> Software Intelligence Platform
+            <Sparkles className="w-4 h-4 text-accent-500" /> SOFTWARE INTELLIGENCE PLATFORM
           </motion.div>
           
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-5xl md:text-7xl font-extrabold text-slate-50 tracking-tight leading-[1.1]"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-slate-50 tracking-tight leading-[1.12]"
           >
-            Software Intelligence <br className="hidden md:block"/>
-            <span className="text-gradient font-black tracking-tight">Requirements · Traceability</span> <br className="hidden md:block"/>
-            Assurance
+            Software Intelligence for <br className="hidden md:block"/>
+            <span className="text-gradient font-black tracking-tight">
+              Requirements, Traceability & Assurance
+            </span>
           </motion.h1>
           
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="mt-6 text-xl text-slate-400 leading-relaxed max-w-2xl mx-auto font-medium"
+            className="mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-medium"
           >
-            Instantly compare requirements across BRD, SRS, and Change Requests. Detect modifications, map cross-document traceability, and guarantee continuous architectural assurance.
+            Connect requirements across BRDs, SRSs, FRDs, user stories, test cases, and change requests. Detect changes, conflicts, gaps, and dependencies across the software lifecycle.
           </motion.p>
+
+          {/* Capabilities Badge Strip */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.15 }}
+            className="mt-8 flex flex-wrap justify-center items-center gap-2 sm:gap-3 max-w-4xl mx-auto"
+          >
+            {capabilityTags.map((cap, idx) => (
+              <span 
+                key={idx} 
+                className="px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/80 text-slate-300 text-xs sm:text-sm font-semibold backdrop-blur-md hover:border-neon-blue/60 transition-colors shadow-sm"
+              >
+                {cap}
+              </span>
+            ))}
+          </motion.div>
           
           <motion.div 
             initial={{ opacity: 0, y: 20 }}
@@ -187,7 +214,7 @@ export default function Home() {
         >
           <div className="text-center">
             <div className="text-3xl md:text-4xl font-extrabold text-slate-50 mb-2 mt-1">Multi-Source</div>
-            <div className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">BRD · SRS · CR · QA</div>
+            <div className="text-xs md:text-sm font-bold text-slate-400 uppercase tracking-widest">BRD · SRS · FRD · CR · QA</div>
           </div>
           <div className="text-center">
             <div className="text-3xl md:text-4xl font-extrabold text-neon-blue mb-2 mt-1">Bi-Directional</div>
@@ -234,7 +261,7 @@ export default function Home() {
             <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
               {[
                 { step: "01", title: "Baseline Docs", desc: "Upload master BRD and SRS documents as your source of truth.", icon: <FileText className="w-7 h-7" /> },
-                { step: "02", title: "Updated Specs", desc: "Inject modified specifications and ad-hoc sprint change requests.", icon: <FileOutput className="w-7 h-7" /> },
+                { step: "02", title: "Updated Specs", desc: "Inject modified specifications, user stories, and change requests.", icon: <FileOutput className="w-7 h-7" /> },
                 { step: "03", title: "Traceability Engine", desc: "Our engine executes cosine similarity to map shifting dependencies.", icon: <Activity className="w-7 h-7" /> },
                 { step: "04", title: "Assurance Matrix", desc: "Instantly trace scope creep, provenance, and risks in the dashboard.", icon: <LayoutDashboard className="w-7 h-7" /> }
               ].map((s, i) => (
