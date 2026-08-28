@@ -202,16 +202,21 @@ export default function Home() {
           </motion.div>
         </div>
 
-        {/* 2. Live Demo / Upload Box */}
+        {/* 2. Interactive Workbench Section */}
         <div className="pt-24 pb-28 scroll-mt-20" ref={demoRef}>
           <div className="text-center mb-12">
-            <h2 className="text-3xl md:text-4xl font-bold text-slate-50 tracking-tight">Live Interactive Demo</h2>
-            <p className="text-slate-400 mt-3 max-w-2xl mx-auto text-lg">
-              Upload multiple baseline documents and updated specifications below to generate an end-to-end requirement drift and cross-document assurance audit.
+            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-blue text-xs font-mono font-bold tracking-widest uppercase mb-4 shadow-sm">
+              <Zap className="w-3.5 h-3.5 text-amber-400" /> Interactive Workbench
+            </div>
+            <h2 className="text-3xl sm:text-4xl md:text-5xl font-black text-slate-50 tracking-tight">
+              Software Intelligence <span className="text-gradient">Engine</span>
+            </h2>
+            <p className="text-slate-400 mt-3 max-w-2xl mx-auto text-base sm:text-lg font-medium">
+              Upload multiple baseline documents and updated specifications to run an end-to-end requirement drift, traceability, and architectural assurance audit.
             </p>
           </div>
           <motion.div
-            initial={{ opacity: 0, scale: 0.95 }}
+            initial={{ opacity: 0, scale: 0.96 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             className="relative z-10"
