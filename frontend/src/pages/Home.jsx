@@ -171,34 +171,45 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-16 pb-28">
         
-        {/* 1. Hero Section */}
-        <div className="text-center max-w-5xl mx-auto">
+        {/* 1. Hero Section: Iconic High-Contrast Layout */}
+        <div className="text-center max-w-4xl mx-auto">
+          
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: [0, -6, 0] }}
             transition={{ opacity: { duration: 0.5 }, y: { repeat: Infinity, duration: 4, ease: "easeInOut" } }}
             className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-900/90 border border-primary-900/80 text-neon-blue text-xs sm:text-sm font-extrabold mb-8 shadow-xl shadow-indigo-950/50 backdrop-blur-md"
           >
-            <Sparkles className="w-4 h-4 text-amber-400" /> Software Intelligence Platform
+            <Sparkles className="w-4 h-4 text-amber-400" /> Autonomous Software Intelligence Platform
           </motion.div>
           
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-5xl md:text-7xl font-extrabold text-slate-50 tracking-tight leading-[1.1]"
+            className="text-5xl sm:text-6xl md:text-7xl lg:text-8xl font-black text-slate-50 tracking-tight leading-[1.08]"
           >
-            Software Intelligence <br className="hidden md:block"/>
-            <span className="text-gradient font-black tracking-tight">Requirements · Traceability</span> <br className="hidden md:block"/>
-            Assurance
+            Software <span className="text-gradient font-black tracking-tight">Intelligence</span>
           </motion.h1>
+
+          {/* Bold Triple Keyword Subtitle */}
+          <motion.div
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.08 }}
+            className="mt-4 flex flex-wrap justify-center items-center gap-3 sm:gap-4 text-xl sm:text-2xl md:text-3xl font-extrabold tracking-tight"
+          >
+            <span className="text-slate-100">Requirements.</span>
+            <span className="text-neon-blue">Traceability.</span>
+            <span className="text-slate-200">Assurance.</span>
+          </motion.div>
           
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="mt-8 text-lg sm:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-medium"
+            transition={{ delay: 0.15 }}
+            className="mt-6 text-base sm:text-lg md:text-xl text-slate-300 leading-relaxed max-w-2xl mx-auto font-medium"
           >
-            The autonomous intelligence layer for mission-critical software engineering. Ingest BRDs, SRS, Change Requests, and Technical Specs to eliminate scope creep, map cross-document traceability, and guarantee continuous architectural assurance before code is written.
+            Autonomous requirement drift detection, bi-directional cross-document traceability, and automated architectural assurance for mission-critical software engineering teams.
           </motion.p>
           
           <motion.div 
