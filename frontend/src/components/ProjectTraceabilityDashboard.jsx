@@ -10,6 +10,7 @@ export default function ProjectTraceabilityDashboard({ result }) {
   const [viewTab, setViewTab] = useState('matrix'); // 'matrix' | 'chains' | 'graph'
   const [statusFilter, setStatusFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedGraphNode, setSelectedGraphNode] = useState(null);
 
   const summary = result.summary || {};
   const matrix = result.traceability_matrix || [];
@@ -97,6 +98,26 @@ export default function ProjectTraceabilityDashboard({ result }) {
     }
   };
 
+  // Group nodes by tier for structured visual DAG
+  const nodesByTier = useMemo(() => {
+    const tiers = {
+      "BRD": [],
+      "SRS": [],
+      "FRD": [],
+      "User Story": [],
+      "Test Case": [],
+      "Change Request": [],
+      "Meeting Minutes": []
+    };
+    (graph.nodes || []).forEach(node => {
+      const type = node.document_type || "Other";
+      if (tiers[type]) {
+        tiers[type].push(node);
+      }
+    });
+    return tiers;
+  }, [graph.nodes]);
+
   return (
     <div className="bg-transparent min-h-screen py-8 text-slate-100 font-sans">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -130,7 +151,7 @@ export default function ProjectTraceabilityDashboard({ result }) {
           <span>Generated on {new Date().toLocaleDateString()}</span>
         </div>
 
-        {/* 1. Project High-Level Metrics Strip (Zero baseline/updated drift numbers) */}
+        {/* 1. Project High-Level Metrics Strip */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
             <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Project Documents</div>
@@ -208,6 +229,9 @@ export default function ProjectTraceabilityDashboard({ result }) {
                   <div className="flex items-center gap-2 text-rose-300 font-bold mb-1">
                     <span className="px-2 py-0.5 rounded bg-rose-900/40 text-xs font-mono">{conf.source_id}</span>
                     <span>{conf.source_doc}</span>
+                    <ArrowRight className="w-3.5 h-3.5 text-rose-500" />
+                    <span className="px-2 py-0.5 rounded bg-rose-900/40 text-xs font-mono">{conf.target_id}</span>
+                    <span>{conf.target_doc}</span>
                   </div>
                   <p className="text-slate-300 text-xs mb-2 italic">"{conf.source_text}"</p>
                   <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-900/40 text-rose-200 text-xs font-semibold">
@@ -267,7 +291,7 @@ export default function ProjectTraceabilityDashboard({ result }) {
             }`}
           >
             <Network className="w-4 h-4 text-indigo-400" />
-            Traceability Graph ({graph.edges?.length || 0} Edges)
+            Visual Traceability Network Graph ({graph.edges?.length || 0} Edges)
           </button>
         </div>
 
@@ -440,31 +464,81 @@ export default function ProjectTraceabilityDashboard({ result }) {
           </div>
         )}
 
-        {/* TAB 3: Traceability Graph Network */}
+        {/* TAB 3: Visual Traceability Network Graph (Visual Multi-Tier DAG) */}
         {viewTab === 'graph' && (
           <div className="mb-12 p-6 rounded-3xl bg-slate-950/90 border border-slate-800 shadow-2xl">
-            <h3 className="text-base font-bold text-white mb-2 flex items-center gap-2">
-              <Network className="w-5 h-5 text-indigo-400" />
-              Traceability Graph Discovered Relationships ({graph.edges?.length || 0})
-            </h3>
-            <p className="text-xs text-slate-400 mb-6">Interactive directed dependency network discovered by lexical verification</p>
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
+              <div>
+                <h3 className="text-base font-bold text-white flex items-center gap-2">
+                  <Network className="w-5 h-5 text-indigo-400" />
+                  Visual Traceability Network Graph ({graph.edges?.length || 0} Directed Edges)
+                </h3>
+                <p className="text-xs text-slate-400 mt-0.5">Interactive multi-tier engineering dependency network discovered by lexical verification</p>
+              </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-              {graph.edges?.map((edge, i) => (
-                <div key={i} className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 text-xs">
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="font-mono text-neon-blue font-bold truncate max-w-[120px]" title={edge.source}>{edge.source.split('::')[1] || edge.source}</span>
-                    <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${getRelBadge(edge.relationship)}`}>
-                      {edge.relationship}
-                    </span>
-                    <span className="font-mono text-indigo-300 font-bold truncate max-w-[120px]" title={edge.target}>{edge.target.split('::')[1] || edge.target}</span>
+              {selectedGraphNode && (
+                <div className="p-2 px-3 rounded-xl bg-neon-blue/10 border border-neon-blue/30 text-xs flex items-center gap-2">
+                  <span className="text-slate-400">Selected Node:</span>
+                  <span className="font-mono font-bold text-neon-blue">{selectedGraphNode.artifact_id}</span>
+                  <button onClick={() => setSelectedGraphNode(null)} className="text-slate-400 hover:text-white ml-2">×</button>
+                </div>
+              )}
+            </div>
+
+            {/* Multi-Tier Directed Flow Visualization */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 overflow-x-auto pb-4">
+              {['BRD', 'SRS', 'FRD', 'User Story', 'Test Case'].map(tierName => (
+                <div key={tierName} className="p-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 flex flex-col gap-2 min-w-[170px]">
+                  <div className="text-[11px] font-mono font-bold text-slate-400 uppercase border-b border-slate-800 pb-1.5 flex items-center justify-between">
+                    <span>{tierName}</span>
+                    <span className="text-[10px] text-slate-500">{(nodesByTier[tierName] || []).length}</span>
                   </div>
-                  <div className="flex items-center justify-between text-[10px] text-slate-400 pt-1 border-t border-slate-800/50">
-                    <span>Status: {edge.status}</span>
-                    <span>Lexical Sim: {edge.similarity?.toFixed(2)}</span>
+                  
+                  <div className="space-y-2 mt-1">
+                    {(nodesByTier[tierName] || []).map(node => {
+                      const isSelected = selectedGraphNode?.id === node.id;
+                      return (
+                        <div
+                          key={node.id}
+                          onClick={() => setSelectedGraphNode(node)}
+                          className={`p-2 rounded-xl text-xs font-mono cursor-pointer transition-all border ${
+                            isSelected 
+                              ? 'bg-neon-blue/20 border-neon-blue text-white shadow-lg' 
+                              : 'bg-slate-950/80 border-slate-800/80 text-slate-300 hover:border-slate-600'
+                          }`}
+                        >
+                          <div className="font-bold flex items-center justify-between">
+                            <span className={tierName === 'BRD' ? 'text-amber-400' : tierName === 'SRS' ? 'text-blue-400' : tierName === 'FRD' ? 'text-cyan-400' : tierName === 'User Story' ? 'text-purple-400' : 'text-emerald-400'}>
+                              {node.artifact_id}
+                            </span>
+                          </div>
+                          <p className="text-[10px] text-slate-400 line-clamp-2 mt-1">{node.text}</p>
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
               ))}
+            </div>
+
+            {/* Edge Connections List for Selected Node or All */}
+            <div className="mt-6 pt-4 border-t border-slate-800">
+              <h4 className="text-xs font-mono font-bold text-slate-400 uppercase mb-3">
+                {selectedGraphNode ? `Direct Links for ${selectedGraphNode.artifact_id}` : 'All Discovered Direct Graph Links'}
+              </h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
+                {(graph.edges || [])
+                  .filter(e => !selectedGraphNode || e.source === selectedGraphNode.id || e.target === selectedGraphNode.id)
+                  .map((edge, i) => (
+                    <div key={i} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs flex items-center justify-between">
+                      <span className="font-mono text-neon-blue font-bold truncate max-w-[100px]">{edge.source.split('::')[1] || edge.source}</span>
+                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${getRelBadge(edge.relationship)}`}>
+                        {edge.relationship}
+                      </span>
+                      <span className="font-mono text-indigo-300 font-bold truncate max-w-[100px]">{edge.target.split('::')[1] || edge.target}</span>
+                    </div>
+                  ))}
+              </div>
             </div>
           </div>
         )}
@@ -545,6 +619,19 @@ export default function ProjectTraceabilityDashboard({ result }) {
             )}
           </div>
         </div>
+
+        {/* Phase 2 Clean Footer */}
+        <footer className="mt-16 pt-8 border-t border-slate-800 pb-12 print:hidden">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-slate-400 font-medium">
+            <div className="flex flex-wrap items-center gap-6">
+              <span className="flex items-center gap-1.5"><Layers className="w-4 h-4 text-neon-blue"/> ReqVision AI — Software Intelligence Platform</span>
+              <span className="flex items-center gap-1.5"><Database className="w-4 h-4 text-purple-400"/> Cross-Document Lexical Traceability Matrix</span>
+            </div>
+            <div className="text-slate-500">
+              Deterministic Lexical Verification • 100% Anti-Hallucination Safe
+            </div>
+          </div>
+        </footer>
 
       </div>
     </div>

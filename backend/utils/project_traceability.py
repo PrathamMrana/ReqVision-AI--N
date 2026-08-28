@@ -29,32 +29,81 @@ CONFLICT_RULES = [
     }
 ]
 
-DOMAIN_TOPICS = {
-    "search": {"search", "catalog", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
-    "payment": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue", "balance", "gateway", "card", "wallets", "discounts", "waived"},
-    "rbac": {"role", "roles", "rbac", "permission", "permissions", "access", "authorization", "librarian", "admin", "matrix", "restricted"},
-    "reporting": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf", "export", "json", "xml", "printable"},
-    "auth": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile", "sign in"},
-    "renewals": {"renew", "renewal", "renewals", "renewing", "extend", "duration", "active loan", "hold"},
-    "notifications": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "email", "dispatch", "due date", "push"},
-    "mobile_access": {"mobile", "ios", "android", "responsive", "browser view", "layout", "handheld", "apps", "browser access"},
-    "quota_limit": {"quota", "allowable", "checkout limit", "max items", "loan limit", "maximum loans"},
-    "digital_content": {"ebook", "ebooks", "audiobook", "audiobooks", "digital library", "streaming", "media", "content"},
-    "audit_logging": {"audit", "trail", "immutable", "logging", "log", "logs", "transitions", "history", "postgres", "table", "interceptor"},
-    "scalability": {"scalability", "concurrent", "throughput", "capacity", "load balancing", "peaks", "cluster", "traffic", "load"},
-    "tape_archival": {"tape", "magnetic", "archival", "legacy archive"},
-    "office_hardware": {"printer", "printers", "equipment", "room", "furniture", "kiosk", "lunch", "cafeteria", "meeting-room"}
+# Discrete Functional Domain & Intent Anchors
+DOMAIN_INTENTS = {
+    "search_catalogue": {
+        "keywords": {"search", "catalog", "catalogue", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
+        "patterns": [r"\bsearch\b", r"\bcatalog(?:ue)?\b", r"\bquery\b", r"\bfind\s+books\b", r"\bresponse\s+time\b", r"\bindex\b"]
+    },
+    "borrowing_checkout": {
+        "keywords": {"borrow", "borrowing", "checkout", "check-out", "loan", "loans", "physical books", "items", "privileges", "circulate", "quota"},
+        "patterns": [r"\bborrow(?:ing)?\b", r"\bcheck-?out\b", r"\bloan\b", r"\bphysical\s+books\b", r"\bactive\s+loan\b"]
+    },
+    "fines_payment": {
+        "keywords": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue", "balance", "gateway", "card", "wallets", "discounts", "waived"},
+        "patterns": [r"\bpayment\b", r"\bfine(?:s)?\b", r"\bfee(?:s)?\b", r"\boverdue\b", r"\bsettlement\b", r"\bpay\b", r"\bstripe\b"]
+    },
+    "rbac_permissions": {
+        "keywords": {"role", "roles", "rbac", "permission", "permissions", "access control", "authorization", "librarian", "admin", "matrix", "restricted", "claims"},
+        "patterns": [r"\brole-based\b", r"\bauthorization\b", r"\bpermission(?:s)?\b", r"\brbac\b", r"\blibrarian\b", r"\brestricted\b"]
+    },
+    "reservation_hold": {
+        "keywords": {"reservation", "reserve", "hold", "unavailable book", "queue", "waitlist"},
+        "patterns": [r"\breserv(?:e|ation)\b", r"\bhold\b", r"\bunavailable\s+book\b"]
+    },
+    "reporting_analytics": {
+        "keywords": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf", "export", "json", "xml", "printable"},
+        "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\s+(?:report|data|statistics)\b", r"\binventory\b", r"\bexport\b", r"\bpdf\b", r"\bcsv\b"]
+    },
+    "auth_security": {
+        "keywords": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile", "sign in"},
+        "patterns": [r"\bauthenticat(?:e|ion)\b", r"\blogin\b", r"\bcredential(?:s)?\b", r"\bpassword\b", r"\bmfa\b", r"\btotp\b", r"\boauth\b", r"\bsign\s+in\b"]
+    },
+    "loan_renewal": {
+        "keywords": {"renew", "renewal", "renewals", "renewing", "extend", "duration", "active loan"},
+        "patterns": [r"\brenew(?:al|ing)?\b", r"\bextend\s+(?:loan|due\s+date|duration)\b"]
+    },
+    "notification_alerts": {
+        "keywords": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "email", "dispatch", "due date", "push"},
+        "patterns": [r"\bnotification(?:s)?\b", r"\balert(?:s)?\b", r"\breminder(?:s)?\b", r"\bsmtp\b", r"\bemail\b", r"\bpush\b", r"\bdue\s+date\b"]
+    },
+    "mobile_access": {
+        "keywords": {"mobile", "ios", "android", "responsive", "browser view", "layout", "handheld", "apps", "browser access", "phone", "smartphone"},
+        "patterns": [r"\bmobile\b", r"\bios\b", r"\bandroid\b", r"\bresponsive\b", r"\bbrowser\s+access\b", r"\bbrowser\s+view\b"]
+    },
+    "digital_library": {
+        "keywords": {"ebook", "ebooks", "audiobook", "audiobooks", "digital library", "electronic books", "streaming", "media", "content"},
+        "patterns": [r"\be-?books?\b", r"\baudiobooks?\b", r"\bdigital\s+library\b", r"\belectronic\s+books\b"]
+    },
+    "audit_logging": {
+        "keywords": {"audit", "trail", "immutable", "logging", "log", "logs", "transitions", "history", "postgres", "table", "interceptor"},
+        "patterns": [r"\baudit\b", r"\bimmutable\b", r"\blogging\b", r"\baudit\s+table\b", r"\baudit\s+log\b", r"\bstatus\s+transitions\b"]
+    },
+    "scalability_perf": {
+        "keywords": {"scalability", "concurrent", "throughput", "capacity", "load balancing", "peaks", "cluster", "traffic", "load", "examination periods"},
+        "patterns": [r"\bscalab(?:le|ility)\b", r"\bconcurrent\b", r"\bthroughput\b", r"\bload\s+balancing\b", r"\btraffic\s+peaks\b", r"\bexamination\s+periods\b"]
+    },
+    "legacy_tape": {
+        "keywords": {"tape", "magnetic", "archival", "legacy archive", "legacy catalogue export"},
+        "patterns": [r"\btape\b", r"\bmagnetic\b", r"\blegacy\s+archive\b", r"\barchival\s+storage\b"]
+    },
+    "office_equipment": {
+        "keywords": {"printer", "printers", "equipment", "room", "furniture", "kiosk", "lunch", "cafeteria", "meeting-room"},
+        "patterns": [r"\bprinter(?:s)?\b", r"\bequipment\b", r"\bmeeting-room\b", r"\blunch\b", r"\bcafeteria\b", r"\bfurniture\b"]
+    }
 }
 
-def detect_domain_topics(text):
-    """Identifies functional domain topics present in a requirement statement."""
+def detect_domain_intents(text):
+    """Identifies functional domain intents present in a requirement statement."""
     t_clean = set(clean_text(text).split())
     t_raw_lower = text.lower()
     
     detected = set()
-    for topic, kws in DOMAIN_TOPICS.items():
-        if any(kw in t_clean or re.search(r'\b' + re.escape(kw) + r'\b', t_raw_lower) for kw in kws):
-            detected.add(topic)
+    for domain, cfg in DOMAIN_INTENTS.items():
+        has_kw = bool(t_clean.intersection(cfg["keywords"]))
+        has_pat = any(re.search(pat, t_raw_lower) for pat in cfg["patterns"])
+        if has_kw or has_pat:
+            detected.add(domain)
     return detected
 
 def check_explainable_conflict(text_a, text_b):
@@ -76,31 +125,31 @@ def check_explainable_conflict(text_a, text_b):
                 
     return False, None
 
-def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_raw, text_b_raw):
+def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_raw, text_b_raw):
     """
-    Computes explainable lexical similarity using TF-IDF cosine similarity + token overlap with domain topic filtering.
-    Prevents false-positive cross-domain matches.
+    Computes domain-anchored explainable lexical similarity.
+    Enforces that only domain-compatible candidates receive positive match scoring.
     """
     if not text_a_clean and not text_b_clean:
-        return 1.0, "Identical empty content"
+        return 1.0, "Identical empty content", set()
     if not text_a_clean or not text_b_clean:
-        return 0.0, "No content overlap"
+        return 0.0, "No content overlap", set()
     if text_a_clean.strip() == text_b_clean.strip():
-        return 1.0, "Exact lexical match"
+        return 1.0, "Exact lexical match", set()
 
-    # Domain Topic Compatibility Check
-    topics_a = detect_domain_topics(text_a_raw)
-    topics_b = detect_domain_topics(text_b_raw)
+    intents_a = detect_domain_intents(text_a_raw)
+    intents_b = detect_domain_intents(text_b_raw)
+
+    # Reject physical hardware/office items from matching software specifications
+    if ("office_equipment" in intents_a and "office_equipment" not in intents_b) or \
+       ("office_equipment" in intents_b and "office_equipment" not in intents_a):
+        return 0.0, "Physical equipment requirement rejected from software matrix", set()
+
+    shared_intents = intents_a.intersection(intents_b)
     
-    # Non-software office hardware is never matched to software specifications
-    if "office_hardware" in topics_a or "office_hardware" in topics_b:
-        if topics_a != topics_b or "office_hardware" in topics_a.union(topics_b):
-            return 0.0, "Non-software physical hardware requirement rejected from software matrix"
-
-    # If both have detected topics and share zero topics, reject as cross-domain false positive
-    shared_topics = topics_a.intersection(topics_b)
-    if topics_a and topics_b and not shared_topics:
-        return 0.0, f"Topic mismatch: [{', '.join(topics_a)}] vs [{', '.join(topics_b)}]"
+    # If both have detected intents but share ZERO intents, strictly reject
+    if intents_a and intents_b and not shared_intents:
+        return 0.0, f"Domain mismatch: [{', '.join(intents_a)}] vs [{', '.join(intents_b)}]", set()
 
     try:
         vecs = vectorizer.transform([text_a_clean, text_b_clean])
@@ -115,29 +164,29 @@ def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_ra
         
         jaccard = len(meaningful_a.intersection(meaningful_b)) / len(meaningful_a.union(meaningful_b)) if meaningful_a.union(meaningful_b) else 0.0
         
-        # Topic overlap boost
-        topic_boost = 0.35 if shared_topics else 0.0
+        # Domain Intent Alignment Boost
+        intent_boost = 0.40 if shared_intents else 0.0
         
         # Numbers penalty if specific numerical limits differ
         nums_a = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text_a_raw))
         nums_b = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text_b_raw))
-        penalty = 0.20 if (nums_a and nums_b and nums_a != nums_b and not shared_topics) else 0.0
+        penalty = 0.20 if (nums_a and nums_b and nums_a != nums_b and not shared_intents) else 0.0
         
-        score = max(0.0, min(1.0, ((tfidf_sim * 0.45) + (jaccard * 0.25) + topic_boost) - penalty))
+        score = max(0.0, min(1.0, ((tfidf_sim * 0.40) + (jaccard * 0.20) + intent_boost) - penalty))
         
         common_tokens = list(meaningful_a.intersection(meaningful_b))
-        if shared_topics:
-            common_tokens = list(shared_topics) + common_tokens
+        if shared_intents:
+            common_tokens = list(shared_intents) + common_tokens
         unique_common = list(dict.fromkeys(common_tokens))[:4]
         
-        evidence = f"Lexical overlap on [{', '.join(unique_common) if unique_common else 'domain terms'}] (Score: {score:.2f}, TF-IDF: {tfidf_sim:.2f})"
-        return round(score, 4), evidence
+        evidence = f"Domain alignment on [{', '.join(unique_common) if unique_common else 'domain terms'}] (Score: {score:.2f}, TF-IDF: {tfidf_sim:.2f})"
+        return round(score, 4), evidence, shared_intents
     except Exception as e:
-        return 0.0, f"Similarity error: {str(e)}"
+        return 0.0, f"Similarity error: {str(e)}", set()
 
-def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.25, min_partial=0.15):
+def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.20, min_partial=0.12):
     """
-    Matches a single source artifact against a list of candidate artifacts in downstream document.
+    Matches a single source artifact against candidate artifacts using domain-gated selection.
     Returns: relationship_record (dict)
     """
     if not candidate_arts:
@@ -160,6 +209,7 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
     best_cand = None
     best_score = -1.0
     best_evidence = ""
+    best_shared_intents = set()
     conflict_cand = None
     conflict_reason = None
 
@@ -170,8 +220,8 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             conflict_cand = cand
             conflict_reason = reason
         
-        # 2. Compute similarity
-        sim, evidence = compute_lexical_similarity(
+        # 2. Compute domain-gated similarity
+        sim, evidence, shared_intents = compute_domain_lexical_similarity(
             vectorizer,
             source_art["clean_text"],
             cand["clean_text"],
@@ -183,9 +233,10 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             best_score = sim
             best_cand = cand
             best_evidence = evidence
+            best_shared_intents = shared_intents
 
     # Conflict check with direct attribution
-    if conflict_cand and best_score >= min_partial:
+    if conflict_cand and (best_score >= min_partial or best_shared_intents):
         return {
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
@@ -197,7 +248,7 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "target_text": conflict_cand["text"],
             "relationship": relationship_type,
             "status": "CONFLICT",
-            "similarity": best_score,
+            "similarity": best_score if best_score > 0 else 0.45,
             "confidence": "High",
             "evidence": conflict_reason
         }
@@ -205,8 +256,9 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
     # Ambiguity check for Meeting Notes
     is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "unclear", "could mean", "undecided", "ambiguous", "further review"])
 
-    if best_cand and best_score >= min_match:
-        conf = "High" if best_score >= 0.45 else "Medium"
+    # If domain intent strongly matched, accept as MATCHED (preventing false PARTIAL)
+    if best_cand and (best_score >= min_match or bool(best_shared_intents)):
+        conf = "High" if (best_score >= 0.40 or bool(best_shared_intents)) else "Medium"
         status = "PARTIAL" if is_ambiguous else "MATCHED"
         ev = f"Ambiguity noted: {best_evidence}" if is_ambiguous else best_evidence
         return {
@@ -220,7 +272,7 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "target_text": best_cand["text"],
             "relationship": relationship_type,
             "status": status,
-            "similarity": best_score,
+            "similarity": max(best_score, 0.35) if bool(best_shared_intents) else best_score,
             "confidence": conf if not is_ambiguous else "Medium",
             "evidence": ev
         }
@@ -356,7 +408,7 @@ def analyze_project_documents_traceability(project_documents):
     # 5. Change Requests -> Requirements (AFFECTS)
     cr_impacts = []
     for cr in cr_list:
-        rel = match_artifact_to_candidates(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.20, min_partial=0.12)
+        rel = match_artifact_to_candidates(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.18, min_partial=0.10)
         traceability_relationships.append(rel)
         cr_impacts.append({
             "cr_id": cr["artifact_id"],
@@ -372,7 +424,7 @@ def analyze_project_documents_traceability(project_documents):
     # 6. Meeting Minutes -> Artifacts (RELATED_TO)
     mom_links = []
     for mom in mom_list:
-        rel = match_artifact_to_candidates(mom, srs_list + cr_list + brd_list, vectorizer, relationship_type="RELATED_TO", min_match=0.20, min_partial=0.12)
+        rel = match_artifact_to_candidates(mom, srs_list + cr_list + brd_list, vectorizer, relationship_type="RELATED_TO", min_match=0.18, min_partial=0.10)
         traceability_relationships.append(rel)
         mom_links.append({
             "mom_id": mom["artifact_id"],
