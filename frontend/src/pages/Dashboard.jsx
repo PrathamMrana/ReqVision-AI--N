@@ -15,37 +15,25 @@ import DiffCard from '../components/DiffCard';
 import QualityDashboard from '../components/QualityDashboard';
 import TraceabilityMatrix from '../components/TraceabilityMatrix';
 import ImpactAnalysis from '../components/ImpactAnalysis';
+import ProjectTraceabilityDashboard from '../components/ProjectTraceabilityDashboard';
 
 export default function Dashboard() {
   const location = useLocation();
   const printRef = useRef(null);
   const result = location.state?.result;
   
-  const [filter, setFilter] = useState('All');
-  const [search, setSearch] = useState('');
-  const [currentPage, setCurrentPage] = useState(1);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [filter, search]);
-
-  const changes = result?.changes || [];
-
-  const filteredChanges = useMemo(() => {
-    return changes.filter(c => {
-      const matchFilter = filter === 'All' || c.status === filter;
-      const term = search.toLowerCase();
-      const matchSearch = (c.old && c.old.toLowerCase().includes(term)) || 
-                          (c.new && c.new.toLowerCase().includes(term)) ||
-                          (c.module && c.module.toLowerCase().includes(term)) ||
-                          (c.req_id && c.req_id.toLowerCase().includes(term));
-      return matchFilter && matchSearch;
-    });
-  }, [changes, filter, search]);
-
   if (!result) {
     return <Navigate to="/" replace />;
   }
+
+  // If Phase 2 Project Intelligence Mode
+  if (result.mode === 'project_intelligence') {
+    return <ProjectTraceabilityDashboard result={result} />;
+  }
+
+  const [filter, setFilter] = useState('All');
+  const [search, setSearch] = useState('');
+  const [currentPage, setCurrentPage] = useState(1);
 
   const { metrics, executive_summary, module_impact, quality_summary, impact_analysis, statistics, cross_document_analysis } = result;
 

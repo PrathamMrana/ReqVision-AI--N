@@ -178,35 +178,11 @@ export default function UploadBox() {
     const toastId = toast.loading(`Generating Cross-Document Semantic Verification Matrix for ${projectDocs.length} documents...`);
 
     try {
-      // Group documents logically for complete cross-document traceability:
-      // Master tier: BRD, SRS, FRD, Meeting Minutes
-      // Execution/Target tier: User Stories, Test Cases, Change Request, Release Notes
-      const masterTypes = ['BRD', 'SRS', 'FRD', 'Meeting Minutes'];
-      
-      let baseList = projectDocs.filter(d => masterTypes.includes(d.document_type));
-      let updList = projectDocs.filter(d => !masterTypes.includes(d.document_type));
-
-      // If all documents belong to one side, split evenly so cross-document matrix runs
-      if (baseList.length === 0 || updList.length === 0) {
-        const mid = Math.ceil(projectDocs.length / 2);
-        baseList = projectDocs.slice(0, mid);
-        updList = projectDocs.slice(mid);
-      }
-
-      const baselinePayload = baseList.map(d => ({
-        name: d.filename,
-        text: d.content || d.artifacts?.map(a => a.text).join('\n') || ''
-      }));
-
-      const updatedPayload = updList.map(d => ({
-        name: d.filename,
-        text: d.content || d.artifacts?.map(a => a.text).join('\n') || ''
-      }));
-
       const apiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:5001/api/compare';
-      const response = await axios.post(apiUrl, {
-        baseline: baselinePayload,
-        updated: updatedPayload
+      const verifyUrl = apiUrl.replace('/api/compare', '/api/project/verify').replace('/compare', '/project/verify');
+
+      const response = await axios.post(verifyUrl, {
+        documents: projectDocs
       });
 
       toast.success("Cross-Document Traceability Matrix Generated!", { id: toastId });

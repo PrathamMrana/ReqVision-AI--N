@@ -1,28 +1,50 @@
 import re
 import string
-import nltk
-from nltk.tokenize import sent_tokenize, word_tokenize
-from nltk.corpus import stopwords
-from nltk.stem import WordNetLemmatizer
 
-# Ensure resources are available
+# Robust Stopwords list (Standard English stopwords without requiring network downloads)
+DEFAULT_STOPWORDS = {
+    'i', 'me', 'my', 'myself', 'we', 'our', 'ours', 'ourselves', 'you', "you're", "you've",
+    "you'll", "you'd", 'your', 'yours', 'yourself', 'yourselves', 'he', 'him', 'his',
+    'himself', 'she', "she's", 'her', 'hers', 'herself', 'it', "it's", 'its', 'itself',
+    'they', 'them', 'their', 'theirs', 'themselves', 'what', 'which', 'who', 'whom', 'this',
+    'that', "that'll", 'these', 'those', 'am', 'is', 'are', 'was', 'were', 'be', 'been',
+    'being', 'have', 'has', 'had', 'having', 'do', 'does', 'did', 'doing', 'a', 'an', 'the',
+    'and', 'but', 'if', 'or', 'because', 'as', 'until', 'while', 'of', 'at', 'by', 'for',
+    'with', 'about', 'against', 'between', 'into', 'through', 'during', 'before', 'after',
+    'above', 'below', 'to', 'from', 'up', 'down', 'in', 'out', 'on', 'off', 'over', 'under',
+    'again', 'further', 'then', 'once', 'here', 'there', 'when', 'where', 'why', 'how', 'all',
+    'any', 'both', 'each', 'few', 'more', 'most', 'other', 'some', 'such', 'no', 'nor', 'not',
+    'only', 'own', 'same', 'so', 'than', 'too', 'very', 's', 't', 'can', 'will', 'just',
+    'don', "don't", 'should', "should've", 'now', 'd', 'll', 'm', 'o', 're', 've', 'y', 'ain',
+    'aren', "aren't", 'couldn', "couldn't", 'didn', "didn't", 'doesn', "doesn't", 'hadn',
+    "hadn't", 'hasn', "hasn't", 'haven', "haven't", 'isn', "isn't", 'ma', 'mightn',
+    "mightn't", 'mustn', "mustn't", 'needn', "needn't", 'shan', "shan't", 'shouldn',
+    "shouldn't", 'wasn', "wasn't", 'weren', "weren't", 'won', "won't", 'wouldn', "wouldn't"
+}
+
 try:
+    import nltk
+    from nltk.corpus import stopwords
+    from nltk.stem import WordNetLemmatizer
     stop_words = set(stopwords.words('english'))
     lemmatizer = WordNetLemmatizer()
-except LookupError:
-    # Fallback if not downloaded (though app.py handles it)
-    nltk.download('punkt')
-    nltk.download('stopwords')
-    nltk.download('wordnet')
-    stop_words = set(stopwords.words('english'))
-    lemmatizer = WordNetLemmatizer()
+except Exception:
+    stop_words = DEFAULT_STOPWORDS
+    class SimpleLemmatizer:
+        def lemmatize(self, word):
+            if word.endswith('ing') and len(word) > 5:
+                return word[:-3]
+            elif word.endswith('s') and len(word) > 4:
+                return word[:-1]
+            return word
+    lemmatizer = SimpleLemmatizer()
 
 def get_sentences(text):
     """Parse text into list of dicts: [{'id': 'REQ-001', 'text': '...'}]"""
     if not text or not text.strip():
         return []
     
-    # Try to split by explicit tags like REQ-001, FR-01, NFR-100
+    # Try to split by explicit tags like REQ-001, FR-01, NFR-100, BR-001, FS-001
     if re.search(r'\b[A-Z]{2,4}-\d+', text):
         chunks = re.split(r'(?=\b[A-Z]{2,4}-\d+)', text)
         reqs = []
@@ -38,25 +60,24 @@ def get_sentences(text):
                     reqs.append({"id": req_id, "text": req_text})
         return reqs
         
-    chunks = re.split(r'\n\s*\n', text.strip())
+    chunks = re.split(r'\n+', text.strip())
     reqs = []
     for chunk in chunks:
         if chunk.strip():
-            reqs.append({"id": None, "text": chunk.strip().replace('\n', ' ')})
+            reqs.append({"id": None, "text": chunk.strip()})
     return reqs
 
 def clean_text(text):
     """
     Lowercases, removes punctuation (but preserves numbers like 99.9% and 500), removes stopwords, and lemmatizes the text.
     """
-    text = text.lower()
+    if not text:
+        return ""
+    text_lower = text.lower()
+    text_clean = re.sub(r'[^\w\s\.%]', ' ', text_lower)
+    words = text_clean.split()
     
-    # Custom punctuation removal that preserves numbers like 99.9 and percentages
-    # Replace anything that is not alphanumeric, dot, or percent with space
-    text = re.sub(r'[^\w\s\.%]', ' ', text)
-    
-    words = word_tokenize(text)
     cleaned_words = [
-        lemmatizer.lemmatize(w) for w in words if w not in stop_words
+        lemmatizer.lemmatize(w) for w in words if w not in stop_words and len(w) > 1
     ]
     return " ".join(cleaned_words)

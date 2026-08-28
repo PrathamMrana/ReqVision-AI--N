@@ -66,31 +66,11 @@ export default function ProjectWorkspace() {
     const toastId = toast.loading(`Generating Cross-Document Traceability Matrix for ${documents.length} documents...`);
 
     try {
-      const masterTypes = ['BRD', 'SRS', 'FRD', 'Meeting Minutes'];
-      
-      let baseList = documents.filter(d => masterTypes.includes(d.document_type));
-      let updList = documents.filter(d => !masterTypes.includes(d.document_type));
-
-      if (baseList.length === 0 || updList.length === 0) {
-        const mid = Math.ceil(documents.length / 2);
-        baseList = documents.slice(0, mid);
-        updList = documents.slice(mid);
-      }
-
-      const baselinePayload = baseList.map(d => ({
-        name: d.filename,
-        text: d.content || d.artifacts?.map(a => a.text).join('\n') || ''
-      }));
-
-      const updatedPayload = updList.map(d => ({
-        name: d.filename,
-        text: d.content || d.artifacts?.map(a => a.text).join('\n') || ''
-      }));
-
       const apiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:5001/api/compare';
-      const response = await axios.post(apiUrl, {
-        baseline: baselinePayload,
-        updated: updatedPayload
+      const verifyUrl = apiUrl.replace('/api/compare', '/api/project/verify').replace('/compare', '/project/verify');
+
+      const response = await axios.post(verifyUrl, {
+        documents: documents
       });
 
       toast.success("Traceability Matrix Generated!", { id: toastId });

@@ -5,6 +5,7 @@ import time
 from flask import Blueprint, request, jsonify
 from utils.classifier import classify_document
 from utils.extractor import extract_artifacts
+from utils.project_traceability import analyze_project_documents_traceability
 import PyPDF2
 import docx
 
@@ -68,7 +69,6 @@ def detect_documents():
             artifacts = extract_artifacts(doc_id, doc_type, content)
             total_artifacts += len(artifacts)
             
-            # Form friendly artifact label
             type_label_map = {
                 "BRD": "Business Requirements",
                 "SRS": "Software Requirements",
@@ -120,17 +120,11 @@ def detect_documents():
         content = extract_text_from_file(file)
         
         if not content.strip():
-            continue # Skip empty or unsupported unparseable files
+            continue
         
-        # 1. Generate unique Document ID
         doc_id = str(uuid.uuid4())
-        
-        # 2. Independent Classification
         doc_type, confidence, signals = classify_document(content, filename)
-        
-        # 3. Independent Modular Artifact Extraction
         artifacts = extract_artifacts(doc_id, doc_type, content)
-        
         total_artifacts += len(artifacts)
         
         type_label_map = {
@@ -168,3 +162,42 @@ def detect_documents():
             "processing_time_ms": round(execution_time * 1000, 2)
         }
     }), 200
+
+
+@project_bp.route('/verify', methods=['POST'])
+def verify_project_traceability():
+    """
+    Accepts:
+    application/json with:
+    {
+      "documents": [
+         {
+           "document_id": "...",
+           "filename": "01_BRD_Online_Library.docx",
+           "document_type": "BRD",
+           "content": "...",
+           "artifacts": [ ... ]
+         },
+         ...
+      ]
+    }
+    
+    Executes True Project-Level Cross-Document Traceability across all documents with zero baseline/updated bias.
+    """
+    data = request.get_json() or {}
+    documents = data.get('documents', [])
+    
+    if not documents:
+        return jsonify({"error": "No project documents provided for verification"}), 400
+        
+    # Ensure artifacts are extracted for any document that might only have content
+    for doc in documents:
+        if not doc.get('artifacts'):
+            doc_id = doc.get('document_id') or doc.get('id') or str(uuid.uuid4())
+            doc_type = doc.get('document_type') or "SRS"
+            content = doc.get('content') or doc.get('text') or ""
+            doc['artifacts'] = extract_artifacts(doc_id, doc_type, content)
+            
+    # Run the comprehensive Phase 2 Traceability Engine
+    result = analyze_project_documents_traceability(documents)
+    return jsonify(result), 200
