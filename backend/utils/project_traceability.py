@@ -31,16 +31,19 @@ CONFLICT_RULES = [
 
 DOMAIN_TOPICS = {
     "search": {"search", "catalog", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
-    "payment": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue", "balance", "gateway", "card", "wallets", "discounts"},
+    "payment": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue", "balance", "gateway", "card", "wallets", "discounts", "waived"},
     "rbac": {"role", "roles", "rbac", "permission", "permissions", "access", "authorization", "librarian", "admin", "matrix", "restricted"},
     "reporting": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf", "export", "json", "xml", "printable"},
-    "auth": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile"},
+    "auth": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile", "sign in"},
     "renewals": {"renew", "renewal", "renewals", "renewing", "extend", "duration", "active loan", "hold"},
     "notifications": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "email", "dispatch", "due date", "push"},
-    "quota_mobile": {"quota", "limit", "maximum", "allowable", "checkout", "loans", "borrow", "mobile", "layout", "browser", "items"},
+    "mobile_access": {"mobile", "ios", "android", "responsive", "browser view", "layout", "handheld", "apps", "browser access"},
+    "quota_limit": {"quota", "allowable", "checkout limit", "max items", "loan limit", "maximum loans"},
+    "digital_content": {"ebook", "ebooks", "audiobook", "audiobooks", "digital library", "streaming", "media", "content"},
     "audit_logging": {"audit", "trail", "immutable", "logging", "log", "logs", "transitions", "history", "postgres", "table", "interceptor"},
-    "scalability": {"scalability", "concurrent", "throughput", "capacity", "load balancing", "peaks", "cluster", "traffic"},
-    "tape_archival": {"tape", "magnetic", "archival", "legacy archive"}
+    "scalability": {"scalability", "concurrent", "throughput", "capacity", "load balancing", "peaks", "cluster", "traffic", "load"},
+    "tape_archival": {"tape", "magnetic", "archival", "legacy archive"},
+    "office_hardware": {"printer", "printers", "equipment", "room", "furniture", "kiosk", "lunch", "cafeteria", "meeting-room"}
 }
 
 def detect_domain_topics(text):
@@ -89,6 +92,11 @@ def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_ra
     topics_a = detect_domain_topics(text_a_raw)
     topics_b = detect_domain_topics(text_b_raw)
     
+    # Non-software office hardware is never matched to software specifications
+    if "office_hardware" in topics_a or "office_hardware" in topics_b:
+        if topics_a != topics_b or "office_hardware" in topics_a.union(topics_b):
+            return 0.0, "Non-software physical hardware requirement rejected from software matrix"
+
     # If both have detected topics and share zero topics, reject as cross-domain false positive
     shared_topics = topics_a.intersection(topics_b)
     if topics_a and topics_b and not shared_topics:
@@ -108,7 +116,7 @@ def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_ra
         jaccard = len(meaningful_a.intersection(meaningful_b)) / len(meaningful_a.union(meaningful_b)) if meaningful_a.union(meaningful_b) else 0.0
         
         # Topic overlap boost
-        topic_boost = 0.30 if shared_topics else 0.0
+        topic_boost = 0.35 if shared_topics else 0.0
         
         # Numbers penalty if specific numerical limits differ
         nums_a = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text_a_raw))
@@ -127,7 +135,7 @@ def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_ra
     except Exception as e:
         return 0.0, f"Similarity error: {str(e)}"
 
-def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.25, min_partial=0.12):
+def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.25, min_partial=0.15):
     """
     Matches a single source artifact against a list of candidate artifacts in downstream document.
     Returns: relationship_record (dict)
@@ -194,8 +202,13 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "evidence": conflict_reason
         }
 
+    # Ambiguity check for Meeting Notes
+    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "unclear", "could mean", "undecided", "ambiguous", "further review"])
+
     if best_cand and best_score >= min_match:
         conf = "High" if best_score >= 0.45 else "Medium"
+        status = "PARTIAL" if is_ambiguous else "MATCHED"
+        ev = f"Ambiguity noted: {best_evidence}" if is_ambiguous else best_evidence
         return {
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
@@ -206,10 +219,10 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "target_artifact": best_cand["artifact_id"],
             "target_text": best_cand["text"],
             "relationship": relationship_type,
-            "status": "MATCHED",
+            "status": status,
             "similarity": best_score,
-            "confidence": conf,
-            "evidence": best_evidence
+            "confidence": conf if not is_ambiguous else "Medium",
+            "evidence": ev
         }
     elif best_cand and best_score >= min_partial:
         return {
@@ -241,7 +254,7 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "status": "UNMAPPED",
             "similarity": 0.0,
             "confidence": "Low",
-            "evidence": "No target artifact satisfied minimum lexical match threshold"
+            "evidence": "No target artifact satisfied domain and lexical match criteria"
         }
 
 def analyze_project_documents_traceability(project_documents):
@@ -343,7 +356,7 @@ def analyze_project_documents_traceability(project_documents):
     # 5. Change Requests -> Requirements (AFFECTS)
     cr_impacts = []
     for cr in cr_list:
-        rel = match_artifact_to_candidates(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.18, min_partial=0.08)
+        rel = match_artifact_to_candidates(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.20, min_partial=0.12)
         traceability_relationships.append(rel)
         cr_impacts.append({
             "cr_id": cr["artifact_id"],
@@ -359,7 +372,7 @@ def analyze_project_documents_traceability(project_documents):
     # 6. Meeting Minutes -> Artifacts (RELATED_TO)
     mom_links = []
     for mom in mom_list:
-        rel = match_artifact_to_candidates(mom, srs_list + cr_list + brd_list, vectorizer, relationship_type="RELATED_TO", min_match=0.18, min_partial=0.08)
+        rel = match_artifact_to_candidates(mom, srs_list + cr_list + brd_list, vectorizer, relationship_type="RELATED_TO", min_match=0.20, min_partial=0.12)
         traceability_relationships.append(rel)
         mom_links.append({
             "mom_id": mom["artifact_id"],
@@ -476,7 +489,7 @@ def analyze_project_documents_traceability(project_documents):
                 "document_name": root_art["document_name"],
                 "document_type": root_art["document_type"],
                 "text": root_art["text"],
-                "reason": "No downstream requirement, functional spec, or test case satisfied lexical match threshold"
+                "reason": "No downstream requirement, functional spec, or test case satisfied domain and lexical match criteria"
             })
 
         chain["overall_status"] = overall
@@ -560,6 +573,7 @@ def analyze_project_documents_traceability(project_documents):
     srs_frd_cov = round((srs_frd_mapped / srs_total * 100), 1) if srs_total > 0 else 0.0
 
     srs_us_mapped = sum(1 for r in traceability_relationships if r["source_type"] == "SRS" and r["relationship"] == "REALIZED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
+    srs_total = len(srs_list)
     srs_us_cov = round((srs_us_mapped / srs_total * 100), 1) if srs_total > 0 else 0.0
 
     us_tc_mapped = sum(1 for r in traceability_relationships if r["source_type"] == "User Story" and r["relationship"] == "VERIFIED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"])

@@ -124,6 +124,12 @@ export default function ProjectTraceabilityDashboard({ result }) {
           </button>
         </div>
 
+        {/* Print Header (Visible only when printing/exporting to PDF) */}
+        <div className="hidden print:flex fixed top-0 left-0 w-full justify-between items-center text-[10px] text-slate-400 border-b border-slate-700 pb-1.5 pt-1.5 bg-slate-900 z-50 px-8">
+          <span className="font-bold text-slate-200">ReqVision AI | Software Intelligence & Cross-Document Traceability Report</span>
+          <span>Generated on {new Date().toLocaleDateString()}</span>
+        </div>
+
         {/* 1. Project High-Level Metrics Strip (Zero baseline/updated drift numbers) */}
         <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
           <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
