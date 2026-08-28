@@ -31,7 +31,7 @@ CONFLICT_RULES = [
 
 DOMAIN_TOPICS = {
     "search": {"search", "catalog", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
-    "payment": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue", "balance", "gateway", "card", "wallets"},
+    "payment": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue", "balance", "gateway", "card", "wallets", "discounts"},
     "rbac": {"role", "roles", "rbac", "permission", "permissions", "access", "authorization", "librarian", "admin", "matrix", "restricted"},
     "reporting": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf", "export", "json", "xml", "printable"},
     "auth": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile"},
@@ -39,6 +39,7 @@ DOMAIN_TOPICS = {
     "notifications": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "email", "dispatch", "due date", "push"},
     "quota_mobile": {"quota", "limit", "maximum", "allowable", "checkout", "loans", "borrow", "mobile", "layout", "browser", "items"},
     "audit_logging": {"audit", "trail", "immutable", "logging", "log", "logs", "transitions", "history", "postgres", "table", "interceptor"},
+    "scalability": {"scalability", "concurrent", "throughput", "capacity", "load balancing", "peaks", "cluster", "traffic"},
     "tape_archival": {"tape", "magnetic", "archival", "legacy archive"}
 }
 
@@ -100,7 +101,6 @@ def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_ra
         tokens_a = set(text_a_clean.split())
         tokens_b = set(text_b_clean.split())
         
-        # Stop-word filtered token jaccard
         boilerplate = {"system", "shall", "platform", "provide", "user", "members", "service", "verify", "test", "scenario", "order", "want", "able", "allow"}
         meaningful_a = tokens_a - boilerplate
         meaningful_b = tokens_b - boilerplate
@@ -122,7 +122,7 @@ def compute_lexical_similarity(vectorizer, text_a_clean, text_b_clean, text_a_ra
             common_tokens = list(shared_topics) + common_tokens
         unique_common = list(dict.fromkeys(common_tokens))[:4]
         
-        evidence = f"Lexical overlap on [{', '.join(unique_common) if unique_common else 'vocabulary'}] (Score: {score:.2f}, TF-IDF: {tfidf_sim:.2f})"
+        evidence = f"Lexical overlap on [{', '.join(unique_common) if unique_common else 'domain terms'}] (Score: {score:.2f}, TF-IDF: {tfidf_sim:.2f})"
         return round(score, 4), evidence
     except Exception as e:
         return 0.0, f"Similarity error: {str(e)}"
@@ -359,7 +359,7 @@ def analyze_project_documents_traceability(project_documents):
     # 6. Meeting Minutes -> Artifacts (RELATED_TO)
     mom_links = []
     for mom in mom_list:
-        rel = match_artifact_to_candidates(mom, brd_list + srs_list + cr_list, vectorizer, relationship_type="RELATED_TO", min_match=0.18, min_partial=0.08)
+        rel = match_artifact_to_candidates(mom, srs_list + cr_list + brd_list, vectorizer, relationship_type="RELATED_TO", min_match=0.18, min_partial=0.08)
         traceability_relationships.append(rel)
         mom_links.append({
             "mom_id": mom["artifact_id"],
@@ -474,6 +474,7 @@ def analyze_project_documents_traceability(project_documents):
             top_unmapped.append({
                 "artifact_id": root_art["artifact_id"],
                 "document_name": root_art["document_name"],
+                "document_type": root_art["document_type"],
                 "text": root_art["text"],
                 "reason": "No downstream requirement, functional spec, or test case satisfied lexical match threshold"
             })
@@ -491,6 +492,18 @@ def analyze_project_documents_traceability(project_documents):
                 "target_id": rel["target_artifact"],
                 "target_doc": rel["target_document"],
                 "target_text": rel["target_text"],
+                "reason": rel["evidence"]
+            })
+
+    # Collect Gaps from direct unmapped relationships
+    gaps = []
+    for rel in traceability_relationships:
+        if rel["status"] == "UNMAPPED":
+            gaps.append({
+                "artifact_id": rel["source_artifact"],
+                "document_name": rel["source_document"],
+                "document_type": rel["source_type"],
+                "text": rel["source_text"],
                 "reason": rel["evidence"]
             })
 
@@ -519,18 +532,23 @@ def analyze_project_documents_traceability(project_documents):
             })
             node_ids_added.add(node_id)
 
+    seen_edges = set()
     for rel in traceability_relationships:
         if rel["target_artifact"] != "—":
             source_node = f"{rel['source_document']}::{rel['source_artifact']}"
             target_node = f"{rel['target_document']}::{rel['target_artifact']}"
-            graph_edges.append({
-                "source": source_node,
-                "target": target_node,
-                "relationship": rel["relationship"],
-                "status": rel["status"],
-                "similarity": rel["similarity"],
-                "evidence": rel["evidence"]
-            })
+            edge_key = f"{source_node}->{target_node}:{rel['relationship']}"
+            if edge_key not in seen_edges:
+                seen_edges.add(edge_key)
+                graph_edges.append({
+                    "source": source_node,
+                    "target": target_node,
+                    "relationship": rel["relationship"],
+                    "status": rel["status"],
+                    "similarity": rel["similarity"],
+                    "confidence": rel["confidence"],
+                    "evidence": rel["evidence"]
+                })
 
     # Exact Dynamic Path Coverage Calculations
     brd_mapped = sum(1 for r in traceability_relationships if r["source_type"] == "BRD" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
@@ -557,6 +575,39 @@ def analyze_project_documents_traceability(project_documents):
         "mode": "project_intelligence",
         "title": "ReqVision AI — Software Intelligence Report",
         "analysis_type": "Cross-Document Lexical Traceability",
+        "project": {
+            "project_name": "Online Library Platform",
+            "mode": "project_intelligence",
+            "total_documents": len(project_documents)
+        },
+        "documents": [
+            {
+                "document_id": doc.get("document_id") or doc.get("id"),
+                "filename": doc.get("filename") or doc.get("name"),
+                "document_type": doc.get("document_type"),
+                "artifact_count": len(docs_by_type.get(doc.get("document_type"), []))
+            } for doc in project_documents
+        ],
+        "artifacts": all_artifacts,
+        "relationships": traceability_relationships,
+        "traceability_matrix": traceability_relationships,
+        "chains": traceability_chains,
+        "traceability_chains": traceability_chains,
+        "graph": {
+            "nodes": graph_nodes,
+            "edges": graph_edges
+        },
+        "traceability_graph": {
+            "nodes": graph_nodes,
+            "edges": graph_edges
+        },
+        "coverage": {
+            "overall_percentage": overall_cov,
+            "brd_to_srs": f"{brd_srs_cov}% ({brd_mapped}/{brd_total})",
+            "srs_to_frd": f"{srs_frd_cov}% ({srs_frd_mapped}/{srs_total})",
+            "srs_to_user_story": f"{srs_us_cov}% ({srs_us_mapped}/{srs_total})",
+            "user_story_to_test_case": f"{us_tc_cov}% ({us_tc_mapped}/{us_total})"
+        },
         "summary": {
             "total_documents": len(project_documents),
             "total_artifacts": len(all_artifacts),
@@ -571,22 +622,17 @@ def analyze_project_documents_traceability(project_documents):
                 "user_story_to_test_case_coverage": f"{us_tc_cov}% ({us_tc_mapped}/{us_total})"
             }
         },
-        "traceability_matrix": traceability_relationships,
-        "traceability_chains": traceability_chains,
-        "traceability_graph": {
-            "nodes": graph_nodes,
-            "edges": graph_edges
-        },
+        "conflicts": top_conflicts,
         "top_conflicts": top_conflicts,
+        "gaps": gaps,
         "top_unmapped": top_unmapped,
         "change_request_impacts": cr_impacts,
         "meeting_minutes_links": mom_links,
-        "documents": [
-            {
-                "document_id": doc.get("document_id") or doc.get("id"),
-                "filename": doc.get("filename") or doc.get("name"),
-                "document_type": doc.get("document_type"),
-                "artifact_count": len(docs_by_type.get(doc.get("document_type"), []))
-            } for doc in project_documents
-        ]
+        "statistics": {
+            "total_documents": len(project_documents),
+            "total_artifacts": len(all_artifacts),
+            "total_relationships": len(traceability_relationships),
+            "status_breakdown": status_counts,
+            "coverage_percentage": overall_cov
+        }
     }

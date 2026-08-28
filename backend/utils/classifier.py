@@ -4,36 +4,37 @@ DOCUMENT_SIGNALS = {
     "SRS": [
         "software requirements specification", "functional requirements", 
         "non-functional requirements", "system shall", "system requirements",
-        "performance requirements", "security requirements", r"\bFR-\d+\b", r"\bNFR-\d+\b"
+        "performance requirements", "security requirements", r"\bFR-\d+\b", r"\bNFR-\d+\b", r"\bREQ-\d+\b"
     ],
     "BRD": [
         "business requirements document", "business objective", "business goals",
         "stakeholders", "business need", "roi", "business scope", "executive summary",
-        "business process", r"\bBR-\d+\b"
+        "business process", r"\bBR-\d+\b", r"\bOBJ-\d+\b"
     ],
     "FRD": [
         "functional requirements document", "functional specification", "system function",
-        "input", "output", "process flow", "use case", "precondition", "postcondition"
+        "input", "output", "process flow", "use case", "precondition", "postcondition", r"\bFS-\d+\b"
     ],
     "User Story": [
-        "as a user", "i want", "so that", "acceptance criteria", "given", "when", "then",
-        "story points", "user stories", "backlog"
+        "as a user", "as a member", "as an administrator", "as a librarian", "as a director",
+        "i want", "so that", "acceptance criteria", "given", "when", "then",
+        "story points", "user stories", "backlog", r"\bUS-\d+\b", r"\bSTORY-\d+\b"
     ],
     "Test Case": [
         "test case", "test id", "test scenario", "expected result", "actual result",
-        "pass", "fail", "test steps", "test data"
+        "pass", "fail", "test steps", "test data", "qa suite", r"\bTC-\d+\b", r"\bTEST-\d+\b"
     ],
     "Change Request": [
         "change request", "requested change", "reason for change", "change impact",
-        "approval", "priority", r"\bCR-\d+\b", "rollback plan"
+        "approval", "priority", r"\bCR-\d+\b", "rollback plan", "engineering change"
     ],
     "Release Notes": [
         "release notes", "version", "bug fixes", "enhancements", "new features",
-        "known issues", "breaking changes", "changelog"
+        "known issues", "breaking changes", "changelog", r"\bRN-\d+\b"
     ],
     "Meeting Minutes": [
         "meeting minutes", "mom", "attendees", "agenda", "discussion", "decisions",
-        "action items", "meeting date"
+        "action items", "meeting date", "architecture board", r"\bMOM-\d+\b", r"\bDEC-\d+\b"
     ]
 }
 
@@ -73,13 +74,12 @@ def classify_document(text, filename=""):
         return "Unknown", 0.0, []
         
     # Check for Ambiguity: If the top two scores are very close, it's ambiguous
-    if best_score > 0 and (best_score - runner_up_score) <= 5 and runner_up_score > 10:
+    if best_score > 0 and (best_score - runner_up_score) <= 5 and runner_up_score > 15:
         # Conflicting strong signals -> Unknown
         ambiguous_signals = matched_signals[best_type] + matched_signals[runner_up_type]
         return "Unknown", 20.0, [f"Ambiguous: Conflicting signals between {best_type} and {runner_up_type}"] + ambiguous_signals
 
     # Non-ML confidence calculation
-    # A score of 40 (e.g., 3 unique signals + some repetition) yields ~90%+
     confidence = min((best_score / 45.0) * 100, 99.0)
     
     # Require a minimum threshold (at least 1 solid unique signal + repetition, or 2 unique)

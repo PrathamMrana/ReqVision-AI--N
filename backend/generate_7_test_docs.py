@@ -14,9 +14,10 @@ doc1.add_paragraph('BR-003: The system must enforce role-based access control fo
 doc1.add_paragraph('BR-004: The platform shall generate monthly inventory and circulation reports for library management analytics.')
 doc1.add_paragraph('BR-005: The system shall provide secure user authentication and account credential management.')
 doc1.add_paragraph('BR-006: The platform shall allow members to renew active book loans online before the due date.')
+doc1.add_paragraph('BR-007: The platform shall enforce maximum allowable loan quota limit per member and support mobile responsive access.')
 doc1.add_paragraph('BR-008: The system shall dispatch automated notification alerts to members regarding upcoming loan due dates.')
 doc1.add_paragraph('BR-009: The platform shall maintain an immutable audit trail for all circulation status changes and financial transactions.')
-doc1.add_paragraph('BR-010: The platform must support high traffic throughput during university examination periods.') # Intentionally unmapped
+doc1.add_paragraph('BR-010: The platform must support high traffic throughput during university examination periods.') # Intentionally unmapped in SRS
 doc1.save('tests/test_docs/01_BRD_Online_Library.docx')
 
 # 2. 02_SRS_Online_Library.docx
@@ -32,7 +33,8 @@ doc2.add_paragraph('FR-106: The system shall allow members to execute loan renew
 doc2.add_paragraph('FR-107: The notification service shall dispatch email alerts 48 hours prior to book loan due dates via SMTP.')
 doc2.add_paragraph('FR-108: The checkout service shall validate maximum allowable loan quota per member and provide mobile browser access.')
 doc2.add_paragraph('FR-109: The logging module shall record all book status transitions and checkout events to an immutable audit table.')
-doc2.add_paragraph('FR-111: The system shall interface with legacy magnetic tape archival storage.') # Intentionally unmapped
+doc2.add_paragraph('FR-110: The platform shall support scalable high throughput architecture capable of handling concurrent requests during traffic peaks.')
+doc2.add_paragraph('FR-111: The system shall interface with legacy magnetic tape archival storage.') # Intentionally unmapped in BRD
 doc2.save('tests/test_docs/02_SRS_Online_Library.docx')
 
 # 3. 03_FRD_Online_Library.docx
@@ -48,7 +50,7 @@ doc3.add_paragraph('FS-206: Loan renewal endpoint validates due date eligibility
 doc3.add_paragraph('FS-207: Scheduled background cron triggers due-date reminder emails via SMTP server.')
 doc3.add_paragraph('FS-208: Mobile client layout and quota validation check rejects checkout request if member has reached active loan limit.')
 doc3.add_paragraph('FS-209: Audit interceptor persists actor ID, timestamp, and action payload to PostgreSQL audit log.')
-doc3.add_paragraph('FS-210: Scalability and load balancing specification for high throughput requests.')
+doc3.add_paragraph('FS-210: Scalability load balancing specification distributing high throughput traffic across backend cluster.')
 doc3.add_paragraph('FS-211: The service shall store passwords using reversible encryption so administrators can recover the original password.') # INTENTIONAL CONFLICT with FR-105
 doc3.save('tests/test_docs/03_FRD_Online_Library.docx')
 
@@ -89,9 +91,10 @@ doc6 = Document()
 doc6.add_heading('Change Request - Engineering Change Collection', 0)
 doc6.add_paragraph('CR-501: Reduce catalogue search query response time from 2 seconds to 1 second.')
 doc6.add_paragraph('CR-502: Enforce Multi-Factor Authentication (MFA) via TOTP for all Librarian and Admin logins.')
-doc6.add_paragraph('CR-503: Update payment gateway to support Apple Pay and Google Pay digital wallets.')
-doc6.add_paragraph('CR-504: Add multi-format circulation report export to include JSON and XML formats.')
+doc6.add_paragraph('CR-503: Add dedicated mobile responsive layouts and quota warnings for members.')
+doc6.add_paragraph('CR-504: Increase supported concurrent users from 5,000 to 20,000 for examination peaks.')
 doc6.add_paragraph('CR-505: Add push notifications in addition to email for due date alerts.')
+doc6.add_paragraph('CR-506: Allow Premium members to settle overdue fines with waived penalty discounts.')
 doc6.add_paragraph('CR-507: Replace office printers in administration office.') # Intentionally unmapped
 doc6.save('tests/test_docs/06_Change_Request_Online_Library.docx')
 
