@@ -132,8 +132,8 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-24">
         
-        {/* 1. Hero Section - Locked Copy */}
-        <div className="text-center max-w-5xl mx-auto">
+        {/* 1. Short, Punchy & Magnetic Hero Section */}
+        <div className="text-center max-w-4xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: [0, -8, 0] }}
@@ -146,12 +146,9 @@ export default function Home() {
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold text-slate-50 tracking-tight leading-[1.12]"
+            className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-slate-50 tracking-tight leading-[1.1]"
           >
-            Software Intelligence for <br className="hidden md:block"/>
-            <span className="text-gradient font-black tracking-tight">
-              Requirements, Traceability & Assurance
-            </span>
+            Software <span className="text-gradient font-black tracking-tight">Intelligence</span>
           </motion.h1>
           
           <motion.p 
@@ -160,7 +157,7 @@ export default function Home() {
             transition={{ delay: 0.1 }}
             className="mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-medium"
           >
-            Connect requirements across BRDs, SRSs, FRDs, user stories, test cases, and change requests. Detect changes, conflicts, gaps, and dependencies across the software lifecycle.
+            <span className="text-white font-bold">Requirements · Traceability · Assurance.</span> Connect requirements across BRDs, SRSs, FRDs, user stories, test cases, and change requests. Detect changes, conflicts, gaps, and dependencies across the software lifecycle.
           </motion.p>
 
           {/* Capabilities Badge Strip */}
@@ -223,7 +220,7 @@ export default function Home() {
           </motion.div>
         </div>
 
-        {/* 4. How It Works */}
+        {/* 3. How It Works */}
         <div className="mt-40">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-50 tracking-tight">How It Works</h2>
@@ -272,7 +269,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 5. Why ReqVision Platform (Comparison) */}
+        {/* 4. Why ReqVision Platform (Comparison) */}
         <div className="mt-40 max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-50 tracking-tight">Why ReqVision AI?</h2>
@@ -311,7 +308,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 6. Feature Grid & Tech Stack */}
+        {/* 5. Feature Grid & Tech Stack */}
         <div className="mt-40 grid lg:grid-cols-2 gap-20 items-center">
           <div>
             <h2 className="text-3xl md:text-4xl font-bold text-slate-50 mb-8 tracking-tight">Powerful Capabilities</h2>
