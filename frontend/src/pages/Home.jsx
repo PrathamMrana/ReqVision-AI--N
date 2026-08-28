@@ -130,10 +130,10 @@ export default function Home() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         
-        {/* 1. Attractive, High-Impact Hero Section */}
-        <div className="text-center max-w-5xl mx-auto">
+        {/* 1. Perfectly Centered Hero Section */}
+        <div className="min-h-[calc(100vh-120px)] flex flex-col justify-center items-center text-center max-w-5xl mx-auto py-12">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: [0, -8, 0] }}
@@ -146,7 +146,7 @@ export default function Home() {
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl sm:text-5xl md:text-6xl lg:text-[70px] font-black text-slate-50 tracking-tight leading-tight whitespace-normal md:whitespace-nowrap"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-[72px] font-black text-slate-50 tracking-tight leading-tight whitespace-normal md:whitespace-nowrap"
           >
             Autonomous <span className="text-gradient font-black tracking-tight">Software Intelligence</span>
           </motion.h1>
@@ -155,7 +155,7 @@ export default function Home() {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-medium"
+            className="mt-6 text-base sm:text-lg md:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-medium"
           >
             Connect requirements across BRDs, SRSs, FRDs, user stories, test cases, and change requests. Detect changes, conflicts, gaps, and dependencies across the software lifecycle.
           </motion.p>
@@ -165,12 +165,12 @@ export default function Home() {
             initial={{ opacity: 0, y: 15 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.15 }}
-            className="mt-8 flex flex-wrap justify-center items-center gap-2 sm:gap-3 max-w-4xl mx-auto"
+            className="mt-8 flex flex-wrap justify-center items-center gap-2.5 max-w-4xl mx-auto"
           >
             {capabilityTags.map((cap, idx) => (
               <span 
                 key={idx} 
-                className="px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-700/80 text-slate-300 text-xs sm:text-sm font-semibold backdrop-blur-md hover:border-neon-blue/60 transition-colors shadow-sm"
+                className="px-3.5 py-1 rounded-full bg-slate-900/90 border border-slate-700/80 text-slate-300 text-xs font-semibold backdrop-blur-md hover:border-neon-blue/60 transition-colors shadow-sm"
               >
                 {cap}
               </span>
@@ -203,7 +203,7 @@ export default function Home() {
         </div>
 
         {/* 2. Live Demo / Upload Box */}
-        <div className="mt-28 scroll-mt-28" ref={demoRef}>
+        <div className="pt-24 pb-28 scroll-mt-20" ref={demoRef}>
           <div className="text-center mb-12">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-50 tracking-tight">Live Interactive Demo</h2>
             <p className="text-slate-400 mt-3 max-w-2xl mx-auto text-lg">
@@ -221,7 +221,7 @@ export default function Home() {
         </div>
 
         {/* 3. How It Works */}
-        <div className="mt-40">
+        <div className="mt-28">
           <div className="text-center mb-16">
             <h2 className="text-3xl md:text-4xl font-bold text-slate-50 tracking-tight">How It Works</h2>
             <p className="text-slate-400 mt-3 text-lg">A seamless NLP pipeline built for software engineering.</p>
@@ -287,7 +287,7 @@ export default function Home() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {[
-                  ["Manual scanning of disparate Word & PDF files", "Automated TF-IDF cross-doc vector matching"],
+                  ["Manual requirement scanning", "Automated TF-IDF cross-doc vector matching"],
                   ["Time consuming (hours/days)", "Analyzed locally in seconds"],
                   ["Error prone & inconsistent", "100% Consistent execution rules"],
                   ["No quantitative impact analysis", "Dynamic module impact & risk level"],
