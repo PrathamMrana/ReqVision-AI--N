@@ -10,6 +10,7 @@ import UploadBox from '../components/UploadBox';
 
 // EXACT ORIGINAL SIGNATURE OCEAN WAVES QUANTUM 3D GRID
 const ParticleVortex = () => {
+  // FULL-SCREEN Advanced Quantum Data Wave
   const rows = 36;
   const cols = 36;
   const particles = [];
@@ -21,9 +22,12 @@ const ParticleVortex = () => {
       const dist = Math.sqrt(dx * dx + dy * dy);
       
       const delay = (dist * -0.2).toFixed(2);
+      
+      // HSL Color radiating perfectly 
       const hue = 210 + (dist * 4); 
       const color = `hsl(${hue}, 90%, 75%)`;
 
+      // We push EVERY particle to ensure the grid covers the entire screen, no culling!
       particles.push({ id: `${i}-${j}`, i, j, delay, color });
     }
   }
@@ -52,6 +56,7 @@ const ParticleVortex = () => {
       <div className="absolute w-[100vw] h-[100vw] bg-indigo-900/10 rounded-full blur-[150px]" />
       
       <div className="relative w-full h-full flex items-center justify-center">
+        {/* MASSIVE 200vw x 200vw grid to ensure corners are covered even during rotation */}
         <div className="relative quantum-grid" style={{ width: '200vw', height: '200vw' }}>
           {particles.map(p => (
             <div
@@ -180,21 +185,20 @@ export default function Home() {
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-slate-50 tracking-tight leading-[1.1]"
+            className="text-5xl md:text-7xl font-extrabold text-slate-50 tracking-tight leading-[1.1]"
           >
             Software Intelligence <br className="hidden md:block"/>
-            <span className="text-gradient font-black tracking-tight">
-              Requirements. Traceability. Assurance.
-            </span>
+            <span className="text-gradient font-black tracking-tight">Requirements · Traceability</span> <br className="hidden md:block"/>
+            Assurance
           </motion.h1>
           
           <motion.p 
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1 }}
-            className="mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-medium"
+            className="mt-8 text-lg sm:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-medium"
           >
-            The autonomous intelligence layer for engineering teams. Ingest BRDs, SRS, Change Requests, and Technical Specs to eliminate scope creep, map cross-document traceability, and guarantee continuous architectural assurance before code is written.
+            The autonomous intelligence layer for mission-critical software engineering. Ingest BRDs, SRS, Change Requests, and Technical Specs to eliminate scope creep, map cross-document traceability, and guarantee continuous architectural assurance before code is written.
           </motion.p>
           
           <motion.div 
