@@ -35,6 +35,24 @@ export default function Dashboard() {
   const [search, setSearch] = useState('');
   const [currentPage, setCurrentPage] = useState(1);
 
+  const changes = result?.changes || [];
+
+  const filteredChanges = useMemo(() => {
+    return changes.filter(c => {
+      const matchFilter = filter === 'All' || c.status === filter;
+      const term = search.toLowerCase();
+      const matchSearch = (c.old && c.old.toLowerCase().includes(term)) || 
+                          (c.new && c.new.toLowerCase().includes(term)) ||
+                          (c.module && c.module.toLowerCase().includes(term)) ||
+                          (c.req_id && c.req_id.toLowerCase().includes(term));
+      return matchFilter && matchSearch;
+    });
+  }, [changes, filter, search]);
+
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [filter, search]);
+
   const { metrics, executive_summary, module_impact, quality_summary, impact_analysis, statistics, cross_document_analysis } = result;
 
   const handlePrint = () => {
