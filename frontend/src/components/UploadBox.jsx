@@ -82,6 +82,7 @@ export default function UploadBox() {
   // Phase 2: Unified Project Document Collection
   const [projectDocs, setProjectDocs] = useState([]);
   const [isClassifying, setIsClassifying] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
 
   // V1: Legacy Baseline vs Updated Documents
   const [baselineDocs, setBaselineDocs] = useState([{ id: 'b-1', type: 'text', name: 'SRS_v1.0_Master.txt', content: '' }]);
@@ -166,13 +167,56 @@ export default function UploadBox() {
     setProjectDocs(prev => prev.filter(d => d.document_id !== docId));
   };
 
-  const handleRunPhase2Verification = () => {
+  // Run Cross-Document Semantic Verification and open Dashboard
+  const handleRunPhase2Verification = async () => {
     if (projectDocs.length === 0) {
       toast.error("Please upload at least one project document.");
       return;
     }
-    // Navigate to the Project Workspace with the project documents
-    navigate('/workspace', { state: { documents: projectDocs } });
+
+    setIsVerifying(true);
+    const toastId = toast.loading(`Generating Cross-Document Semantic Verification Matrix for ${projectDocs.length} documents...`);
+
+    try {
+      // Group documents logically for complete cross-document traceability:
+      // Master tier: BRD, SRS, FRD, Meeting Minutes
+      // Execution/Target tier: User Stories, Test Cases, Change Request, Release Notes
+      const masterTypes = ['BRD', 'SRS', 'FRD', 'Meeting Minutes'];
+      
+      let baseList = projectDocs.filter(d => masterTypes.includes(d.document_type));
+      let updList = projectDocs.filter(d => !masterTypes.includes(d.document_type));
+
+      // If all documents belong to one side, split evenly so cross-document matrix runs
+      if (baseList.length === 0 || updList.length === 0) {
+        const mid = Math.ceil(projectDocs.length / 2);
+        baseList = projectDocs.slice(0, mid);
+        updList = projectDocs.slice(mid);
+      }
+
+      const baselinePayload = baseList.map(d => ({
+        name: d.filename,
+        text: d.content || d.artifacts?.map(a => a.text).join('\n') || ''
+      }));
+
+      const updatedPayload = updList.map(d => ({
+        name: d.filename,
+        text: d.content || d.artifacts?.map(a => a.text).join('\n') || ''
+      }));
+
+      const apiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:5001/api/compare';
+      const response = await axios.post(apiUrl, {
+        baseline: baselinePayload,
+        updated: updatedPayload
+      });
+
+      toast.success("Cross-Document Traceability Matrix Generated!", { id: toastId });
+      navigate('/dashboard', { state: { result: response.data } });
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || "Error running cross-document verification", { id: toastId });
+    } finally {
+      setIsVerifying(false);
+    }
   };
 
   // ----------------------------------------------------
@@ -448,11 +492,20 @@ export default function UploadBox() {
 
             <button
               onClick={handleRunPhase2Verification}
-              disabled={projectDocs.length === 0}
+              disabled={projectDocs.length === 0 || isVerifying}
               className="w-full sm:w-auto px-8 py-3.5 bg-neon-blue/15 hover:bg-neon-blue/25 text-white neon-border rounded-xl font-bold text-base shadow-xl shadow-neon-glow hover:shadow-[0_0_25px_var(--color-neon-blue)] transition-all flex items-center justify-center gap-2 group disabled:opacity-40"
             >
-              <span>Run Cross-Document Semantic Verification</span>
-              <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform text-neon-blue" />
+              {isVerifying ? (
+                <>
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                  Generating Verification Matrix...
+                </>
+              ) : (
+                <>
+                  <span>Run Cross-Document Semantic Verification</span>
+                  <ArrowRight className="w-5 h-5 group-hover:translate-x-1 transition-transform text-neon-blue" />
+                </>
+              )}
             </button>
           </div>
         </div>

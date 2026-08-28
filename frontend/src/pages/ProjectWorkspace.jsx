@@ -1,17 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation, Link } from 'react-router-dom';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { 
   UploadCloud, FileText, CheckCircle, Search, Layers, Server, Activity, 
   ArrowRight, ShieldAlert, Sparkles, BrainCircuit, CheckCircle2, ChevronRight,
-  Database, Network, GitPullRequest, ArrowLeft
+  Database, Network, GitPullRequest, ArrowLeft, Loader2
 } from 'lucide-react';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
+import axios from 'axios';
 
 export default function ProjectWorkspace() {
   const location = useLocation();
+  const navigate = useNavigate();
   const [documents, setDocuments] = useState(location.state?.documents || []);
   const [isUploading, setIsUploading] = useState(false);
+  const [isVerifying, setIsVerifying] = useState(false);
   
   useEffect(() => {
     if (location.state?.documents) {
@@ -35,15 +38,13 @@ export default function ProjectWorkspace() {
       const apiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:5001/api/compare';
       const detectUrl = apiUrl.replace('/api/compare', '/api/project/detect').replace('/compare', '/project/detect');
 
-      const response = await fetch(detectUrl, {
-        method: 'POST',
-        body: formData
+      const response = await axios.post(detectUrl, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' }
       });
       
-      const data = await response.json();
-      if (data.success && data.documents) {
-        setDocuments(prev => [...prev, ...data.documents]);
-        toast.success(`Classified ${data.documents.length} document(s)`, { id: toastId });
+      if (response.data.success && response.data.documents) {
+        setDocuments(prev => [...prev, ...response.data.documents]);
+        toast.success(`Classified ${response.data.documents.length} document(s)`, { id: toastId });
       } else {
         toast.error("Error analyzing documents", { id: toastId });
       }
@@ -52,6 +53,53 @@ export default function ProjectWorkspace() {
       toast.error("Failed to connect to backend", { id: toastId });
     } finally {
       setIsUploading(false);
+    }
+  };
+
+  const handleGenerateMatrix = async () => {
+    if (documents.length === 0) {
+      toast.error("Please upload at least one project document.");
+      return;
+    }
+
+    setIsVerifying(true);
+    const toastId = toast.loading(`Generating Cross-Document Traceability Matrix for ${documents.length} documents...`);
+
+    try {
+      const masterTypes = ['BRD', 'SRS', 'FRD', 'Meeting Minutes'];
+      
+      let baseList = documents.filter(d => masterTypes.includes(d.document_type));
+      let updList = documents.filter(d => !masterTypes.includes(d.document_type));
+
+      if (baseList.length === 0 || updList.length === 0) {
+        const mid = Math.ceil(documents.length / 2);
+        baseList = documents.slice(0, mid);
+        updList = documents.slice(mid);
+      }
+
+      const baselinePayload = baseList.map(d => ({
+        name: d.filename,
+        text: d.content || d.artifacts?.map(a => a.text).join('\n') || ''
+      }));
+
+      const updatedPayload = updList.map(d => ({
+        name: d.filename,
+        text: d.content || d.artifacts?.map(a => a.text).join('\n') || ''
+      }));
+
+      const apiUrl = import.meta.env?.VITE_API_URL || 'http://localhost:5001/api/compare';
+      const response = await axios.post(apiUrl, {
+        baseline: baselinePayload,
+        updated: updatedPayload
+      });
+
+      toast.success("Traceability Matrix Generated!", { id: toastId });
+      navigate('/dashboard', { state: { result: response.data } });
+    } catch (err) {
+      console.error(err);
+      toast.error(err.response?.data?.error || "Failed to generate cross-document matrix", { id: toastId });
+    } finally {
+      setIsVerifying(false);
     }
   };
 
@@ -116,11 +164,15 @@ export default function ProjectWorkspace() {
             accept=".txt,.pdf,.docx" 
             onChange={handleFileUpload} 
             className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-20"
-            disabled={isUploading}
+            disabled={isUploading || isVerifying}
           />
           <div className="flex justify-center mb-4">
             <div className="w-16 h-16 bg-neon-blue/10 border border-neon-blue/30 rounded-2xl flex items-center justify-center group-hover:scale-110 group-hover:shadow-[0_0_25px_var(--color-neon-blue)] transition-all">
-              <UploadCloud className="w-8 h-8 text-neon-blue" />
+              {isUploading ? (
+                <Loader2 className="w-8 h-8 text-neon-blue animate-spin" />
+              ) : (
+                <UploadCloud className="w-8 h-8 text-neon-blue" />
+              )}
             </div>
           </div>
           <h3 className="text-xl font-bold text-slate-100 mb-1">
@@ -221,15 +273,25 @@ export default function ProjectWorkspace() {
                   <Sparkles className="w-5 h-5 text-amber-400" /> Cross-Document Semantic Verification
                 </h4>
                 <p className="text-sm text-indigo-300/80 mt-1 font-medium max-w-xl">
-                  Construct bi-directional semantic mappings across BRD $\rightarrow$ SRS $\rightarrow$ FRD $\rightarrow$ User Stories $\rightarrow$ Test Cases with automated conflict and coverage verification.
+                  Construct bi-directional semantic mappings across BRD → SRS → FRD → User Stories → Test Cases with automated conflict and coverage verification.
                 </p>
               </div>
               <button 
-                onClick={() => toast.success("Cross-Document Semantic Verification matrix loaded for all " + documents.length + " documents!")}
-                className="px-6 py-3.5 bg-neon-blue/15 hover:bg-neon-blue/25 text-white neon-border rounded-xl font-bold text-sm shadow-lg shadow-neon-glow hover:shadow-[0_0_20px_var(--color-neon-blue)] transition-all flex items-center gap-2 group shrink-0"
+                onClick={handleGenerateMatrix}
+                disabled={isVerifying}
+                className="px-6 py-3.5 bg-neon-blue/15 hover:bg-neon-blue/25 text-white neon-border rounded-xl font-bold text-sm shadow-lg shadow-neon-glow hover:shadow-[0_0_20px_var(--color-neon-blue)] transition-all flex items-center gap-2 group shrink-0 disabled:opacity-50"
               >
-                <span>Generate Traceability Matrix</span>
-                <ArrowRight className="w-4 h-4 text-neon-blue group-hover:translate-x-1 transition-transform" />
+                {isVerifying ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin text-neon-blue" />
+                    <span>Generating Dashboard...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Generate Traceability Matrix</span>
+                    <ArrowRight className="w-4 h-4 text-neon-blue group-hover:translate-x-1 transition-transform" />
+                  </>
+                )}
               </button>
             </div>
           </div>
