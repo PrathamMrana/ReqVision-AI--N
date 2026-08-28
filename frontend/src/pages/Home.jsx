@@ -146,10 +146,9 @@ export default function Home() {
           <motion.h1 
             initial={{ opacity: 0, y: -20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-slate-50 tracking-tight leading-[1.15]"
+            className="text-4xl sm:text-5xl md:text-6xl lg:text-[70px] font-black text-slate-50 tracking-tight leading-tight whitespace-normal md:whitespace-nowrap"
           >
-            Autonomous <span className="text-gradient font-black tracking-tight">Software Intelligence</span> <br />
-            Platform
+            Autonomous <span className="text-gradient font-black tracking-tight">Software Intelligence</span>
           </motion.h1>
           
           <motion.p 
