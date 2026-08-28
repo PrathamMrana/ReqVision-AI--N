@@ -132,8 +132,8 @@ export default function Home() {
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-12 pb-24">
         
-        {/* 1. Short, Punchy & Magnetic Hero Section */}
-        <div className="text-center max-w-4xl mx-auto">
+        {/* 1. Attractive, High-Impact Hero Section */}
+        <div className="text-center max-w-5xl mx-auto">
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: [0, -8, 0] }}
@@ -148,7 +148,7 @@ export default function Home() {
             animate={{ opacity: 1, y: 0 }}
             className="text-5xl sm:text-6xl md:text-7xl font-extrabold text-slate-50 tracking-tight leading-[1.1]"
           >
-            Software <span className="text-gradient font-black tracking-tight">Intelligence</span>
+            Autonomous <span className="text-gradient font-black tracking-tight">Software Intelligence</span> <br className="hidden md:block"/> Platform
           </motion.h1>
           
           <motion.p 
@@ -157,7 +157,7 @@ export default function Home() {
             transition={{ delay: 0.1 }}
             className="mt-6 text-lg sm:text-xl text-slate-300 leading-relaxed max-w-3xl mx-auto font-medium"
           >
-            <span className="text-white font-bold">Requirements · Traceability · Assurance.</span> Connect requirements across BRDs, SRSs, FRDs, user stories, test cases, and change requests. Detect changes, conflicts, gaps, and dependencies across the software lifecycle.
+            Connect requirements across BRDs, SRSs, FRDs, user stories, test cases, and change requests. Detect changes, conflicts, gaps, and dependencies across the software lifecycle.
           </motion.p>
 
           {/* Capabilities Badge Strip */}
@@ -287,7 +287,7 @@ export default function Home() {
               </thead>
               <tbody className="divide-y divide-slate-100">
                 {[
-                  ["Manual requirement scanning", "Automated TF-IDF cross-doc vector matching"],
+                  ["Manual scanning of disparate Word & PDF files", "Automated TF-IDF cross-doc vector matching"],
                   ["Time consuming (hours/days)", "Analyzed locally in seconds"],
                   ["Error prone & inconsistent", "100% Consistent execution rules"],
                   ["No quantitative impact analysis", "Dynamic module impact & risk level"],
