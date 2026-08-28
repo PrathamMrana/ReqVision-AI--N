@@ -2,75 +2,35 @@ import { motion } from 'framer-motion';
 import { useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { 
-  Database, Search, Target, ShieldAlert, CheckCircle2, ArrowRight, Zap, 
-  Activity, Clock, FileText, BarChart3, LayoutDashboard, FileOutput, Server, Code, XCircle, BrainCircuit,
+  Database, Target, ArrowRight, Zap, 
+  Activity, Clock, FileText, LayoutDashboard, FileOutput, Server, Code, XCircle, CheckCircle2, BrainCircuit,
   Sparkles, Network, GitPullRequest, Layers, ShieldCheck, Cpu
 } from 'lucide-react';
 import UploadBox from '../components/UploadBox';
 
-const ParticleVortex = () => {
-  const rows = 36;
-  const cols = 36;
-  const particles = [];
-  
-  for (let i = 0; i < rows; i++) {
-    for (let j = 0; j < cols; j++) {
-      const dx = i - rows / 2;
-      const dy = j - cols / 2;
-      const dist = Math.sqrt(dx * dx + dy * dy);
-      
-      const delay = (dist * -0.2).toFixed(2);
-      const hue = 210 + (dist * 4); 
-      const color = `hsl(${hue}, 90%, 75%)`;
-
-      particles.push({ id: `${i}-${j}`, i, j, delay, color });
-    }
-  }
-
+// Modern, ultra-clean ambient glow background (no noisy dots)
+const AmbientMeshBackground = () => {
   return (
-    <div className="fixed inset-0 w-screen h-screen overflow-hidden -z-10 bg-[#05050A] flex items-center justify-center pointer-events-none">
-      <style>{`
-        @keyframes quantum-wave {
-          0% { transform: translateZ(-80px) scale(0.5); opacity: 0.1; }
-          100% { transform: translateZ(80px) scale(2); opacity: 0.8; }
-        }
-        @keyframes slow-spin {
-          from { transform: perspective(1000px) rotateX(60deg) rotateZ(0deg); }
-          to { transform: perspective(1000px) rotateX(60deg) rotateZ(360deg); }
-        }
-        .quantum-grid {
-          animation: slow-spin 120s linear infinite;
-          transform-style: preserve-3d;
-        }
-        .quantum-dot {
-          will-change: transform, opacity;
-        }
-      `}</style>
-
-      {/* Ambient Full-Screen Core Glow */}
-      <div className="absolute w-[100vw] h-[100vw] bg-indigo-900/10 rounded-full blur-[150px]" />
+    <div className="fixed inset-0 w-screen h-screen overflow-hidden -z-10 bg-[#06070B] pointer-events-none">
+      {/* Top Center Primary Aurora Glow */}
+      <div 
+        className="absolute top-[-20%] left-1/2 -translate-x-1/2 w-[800px] sm:w-[1100px] h-[500px] rounded-full blur-[140px] opacity-25"
+        style={{
+          background: 'radial-gradient(circle, rgba(56,189,248,0.7) 0%, rgba(99,102,241,0.5) 45%, rgba(168,85,247,0.2) 75%, transparent 100%)'
+        }}
+      />
+      {/* Subtle Bottom Ambient Accent */}
+      <div className="absolute bottom-[-10%] right-[-10%] w-[600px] h-[450px] bg-indigo-900/10 rounded-full blur-[160px]" />
       
-      <div className="relative w-full h-full flex items-center justify-center">
-        <div className="relative quantum-grid" style={{ width: '200vw', height: '200vw' }}>
-          {particles.map(p => (
-            <div
-              key={p.id}
-              className="absolute rounded-full quantum-dot"
-              style={{
-                width: '5px',
-                height: '5px',
-                backgroundColor: p.color,
-                left: `${(p.i / rows) * 100}%`,
-                top: `${(p.j / cols) * 100}%`,
-                boxShadow: `0 0 12px ${p.color}`,
-                animation: `quantum-wave 3s ease-in-out ${p.delay}s infinite alternate`
-              }}
-            />
-          ))}
-        </div>
-      </div>
-      
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_center,transparent_50%,#05050A_100%)]" />
+      {/* Subtle Top Grid Texture with Vignette */}
+      <div 
+        className="absolute inset-0 opacity-[0.03]"
+        style={{
+          backgroundImage: `linear-gradient(to right, #ffffff 1px, transparent 1px), linear-gradient(to bottom, #ffffff 1px, transparent 1px)`,
+          backgroundSize: '48px 48px'
+        }}
+      />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent via-[#06070B]/70 to-[#06070B]" />
     </div>
   );
 };
@@ -94,14 +54,14 @@ export default function Home() {
   ];
 
   return (
-    <div className="relative min-h-screen bg-transparent overflow-hidden font-sans text-slate-100">
-      <ParticleVortex />
+    <div className="relative min-h-screen bg-[#06070B] overflow-hidden font-sans text-slate-100 selection:bg-neon-blue/30 selection:text-white">
+      <AmbientMeshBackground />
 
       {/* Sleek Minimalist Navbar */}
-      <nav className="w-full max-w-7xl mx-auto px-6 py-5 flex justify-between items-center z-50 relative">
+      <nav className="w-full max-w-7xl mx-auto px-6 py-6 flex justify-between items-center z-50 relative">
         <div className="flex items-center gap-2.5">
           <BrainCircuit className="w-7 h-7 text-neon-blue" />
-          <span className="text-lg font-bold text-slate-100 tracking-tight">
+          <span className="text-lg font-bold text-white tracking-tight">
             ReqVision<span className="text-neon-blue">AI</span>
           </span>
         </div>
@@ -118,101 +78,100 @@ export default function Home() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-14 pb-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-10 sm:pt-16 pb-24">
         
-        {/* 1. Premium Refined Hero Section */}
+        {/* 1. Ultra-Clean, High-Impact Hero Section */}
         <div className="text-center max-w-4xl mx-auto">
+          
+          {/* Subtle Platform Pill */}
           <motion.div
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
-            className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900/90 border border-indigo-500/30 text-neon-blue text-xs font-semibold mb-6 shadow-md shadow-indigo-950/40 backdrop-blur-xl"
+            className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-slate-900/90 border border-slate-700/60 text-slate-300 text-xs font-medium mb-6 shadow-sm backdrop-blur-xl"
           >
             <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-            <span>Software Intelligence Platform</span>
-            <span className="w-1 h-1 rounded-full bg-slate-500"></span>
-            <span className="text-slate-400 font-normal">Autonomous Engineering Assurance</span>
+            <span className="text-white font-semibold">Software Intelligence Platform</span>
+            <span className="w-1 h-1 rounded-full bg-slate-600"></span>
+            <span className="text-slate-400">Continuous Assurance</span>
           </motion.div>
           
+          {/* Main Headline */}
           <motion.h1 
-            initial={{ opacity: 0, y: -15 }}
+            initial={{ opacity: 0, y: -12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.05 }}
-            className="text-4xl sm:text-5xl md:text-6xl font-extrabold text-slate-100 tracking-tight leading-[1.12] max-w-3xl mx-auto"
+            className="text-4xl sm:text-5xl md:text-6xl font-black text-white tracking-tight leading-[1.15] max-w-3xl mx-auto"
           >
-            Software Intelligence <br className="hidden sm:block" />
+            Software Intelligence <br />
             <span className="bg-clip-text text-transparent bg-gradient-to-r from-blue-400 via-indigo-200 to-purple-400 font-extrabold">
               Requirements · Traceability · Assurance
             </span>
           </motion.h1>
           
+          {/* Subheading */}
           <motion.p 
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.1, duration: 0.5 }}
-            className="mt-5 text-sm sm:text-base md:text-lg text-slate-300 leading-relaxed max-w-2xl mx-auto font-normal"
+            className="mt-6 text-sm sm:text-base md:text-lg text-slate-400 leading-relaxed max-w-2xl mx-auto font-normal"
           >
-            The autonomous intelligence layer for modern engineering teams. Ingest BRDs, SRS, Change Requests, and Technical Specs to eliminate scope creep, map cross-document traceability, and guarantee continuous architectural assurance before code is shipped.
+            The autonomous intelligence platform for engineering teams. Ingest BRDs, SRS, Change Requests, and Technical Specs to eliminate scope creep, map cross-document traceability, and guarantee continuous architectural assurance before code is shipped.
           </motion.p>
           
+          {/* Primary Action Buttons */}
           <motion.div 
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 12 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.2, duration: 0.5 }}
+            transition={{ delay: 0.15, duration: 0.5 }}
             className="mt-8 flex flex-col sm:flex-row justify-center items-center gap-3.5"
           >
             <motion.button 
-              whileHover={{ scale: 1.03, y: -1 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.98 }}
               onClick={scrollToDemo} 
-              className="w-full sm:w-auto px-7 py-3.5 bg-neon-blue/20 hover:bg-neon-blue/30 text-white neon-border shadow-neon-glow hover:shadow-[0_0_25px_var(--color-neon-blue)] rounded-xl font-bold shadow-lg transition-all flex items-center justify-center gap-2 group text-sm sm:text-base glass-card"
+              className="w-full sm:w-auto px-7 py-3.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold shadow-lg shadow-blue-900/30 transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
             >
-              Launch Intelligence Engine <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform text-neon-blue" />
+              Launch Intelligence Engine <ArrowRight className="w-4 h-4" />
             </motion.button>
             <motion.button 
-              whileHover={{ scale: 1.03, y: -1 }}
-              whileTap={{ scale: 0.97 }}
+              whileHover={{ scale: 1.02, y: -1 }}
+              whileTap={{ scale: 0.98 }}
               onClick={scrollToDemo} 
-              className="w-full sm:w-auto px-7 py-3.5 bg-slate-900/70 hover:bg-slate-800 text-slate-300 border border-slate-700/80 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 text-sm sm:text-base glass-card"
+              className="w-full sm:w-auto px-7 py-3.5 bg-slate-900/80 hover:bg-slate-800 text-slate-300 border border-slate-700/80 rounded-xl font-semibold transition-all flex items-center justify-center gap-2 text-sm sm:text-base"
             >
               Explore Traceability Matrix
             </motion.button>
           </motion.div>
 
-          {/* Clean Floating Feature Tags Ribbon */}
+          {/* Minimalist Feature Tags */}
           <motion.div 
-            initial={{ opacity: 0, y: 15 }}
+            initial={{ opacity: 0, y: 10 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.3, duration: 0.5 }}
-            className="mt-12 flex flex-wrap justify-center items-center gap-2.5 sm:gap-3"
+            transition={{ delay: 0.25, duration: 0.5 }}
+            className="mt-10 flex flex-wrap justify-center items-center gap-2"
           >
-            {[
-              { label: "Multi-Source Documents", icon: "📁" },
-              { label: "Bi-Directional Traceability", icon: "🔗" },
-              { label: "Deterministic Lexical Math", icon: "⚡" },
-              { label: "Architecture Impact Graphs", icon: "🛡️" }
-            ].map((tag, idx) => (
-              <div key={idx} className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-slate-300 text-xs font-medium backdrop-blur-md hover:border-slate-700 transition-colors shadow-sm">
-                <span className="text-xs">{tag.icon}</span>
-                <span>{tag.label}</span>
-              </div>
+            {["Multi-Source Ingestion", "Cross-Doc Traceability", "Deterministic NLP Engine", "Architectural Assurance"].map((tag, idx) => (
+              <span key={idx} className="px-3 py-1 rounded-full bg-slate-900/60 border border-slate-800 text-slate-400 text-xs font-medium">
+                {tag}
+              </span>
             ))}
           </motion.div>
         </div>
 
         {/* 2. Live Demo / Upload Box */}
-        <div className="mt-24 scroll-mt-20" ref={demoRef}>
+        <div className="mt-20 scroll-mt-20" ref={demoRef}>
           <div className="text-center mb-8">
-            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-neon-blue mb-2">
+            <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-blue-400 mb-2">
               <Zap className="w-3.5 h-3.5 text-amber-400" /> Interactive Workbench
             </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-100 tracking-tight">Software Intelligence Engine</h2>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">Software Intelligence Engine</h2>
             <p className="text-slate-400 mt-2 max-w-xl mx-auto text-sm sm:text-base font-normal">
               Upload multiple baseline documents and updated specifications to generate an end-to-end requirement drift, provenance, and cross-document assurance audit.
             </p>
           </div>
           <motion.div
-            initial={{ opacity: 0, scale: 0.98 }}
+            initial={{ opacity: 0, scale: 0.99 }}
             whileInView={{ opacity: 1, scale: 1 }}
             viewport={{ once: true }}
             className="relative z-10"
@@ -227,7 +186,7 @@ export default function Home() {
             <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-indigo-400 mb-2">
               <Activity className="w-3.5 h-3.5 text-indigo-400" /> Architectural Workflow
             </div>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-100 tracking-tight">How Software Intelligence Works</h2>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">How Software Intelligence Works</h2>
             <p className="text-slate-400 mt-2 text-sm sm:text-base max-w-lg mx-auto">
               A deterministic 4-stage pipeline translating fragmented specifications into verifiable engineering truth.
             </p>
@@ -268,9 +227,9 @@ export default function Home() {
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true }}
                   transition={{ delay: i * 0.08, duration: 0.4 }}
-                  className="group relative p-6 rounded-2xl border border-slate-800/90 overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-slate-700 bg-slate-900/60 glass-card"
+                  className="group relative p-6 rounded-2xl border border-slate-800 bg-slate-900/50 backdrop-blur-md overflow-hidden transition-all duration-300 hover:-translate-y-1 hover:border-slate-700"
                 >
-                  <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-slate-800/80 border border-slate-700/60 text-slate-300 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-400 transition-all duration-300">
+                  <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 bg-slate-800 border border-slate-700 text-slate-300 group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-400 transition-all duration-300">
                     {s.icon}
                   </div>
                   
@@ -278,7 +237,7 @@ export default function Home() {
                     {s.step}
                   </div>
                   
-                  <h3 className="text-base font-bold text-slate-100 mb-1.5 group-hover:text-blue-400 transition-colors duration-200">{s.title}</h3>
+                  <h3 className="text-base font-bold text-white mb-1.5 group-hover:text-blue-400 transition-colors duration-200">{s.title}</h3>
                   <p className="text-slate-400 text-xs font-normal leading-relaxed">{s.desc}</p>
                 </motion.div>
               ))}
@@ -289,15 +248,15 @@ export default function Home() {
         {/* 4. Comparison: Legacy Review vs Software Intelligence Platform */}
         <div className="mt-32 max-w-4xl mx-auto">
           <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-100 tracking-tight">Why Software Intelligence?</h2>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">Why Software Intelligence?</h2>
             <p className="text-slate-400 mt-2 text-sm sm:text-base">Replace subjective manual reviews with verified quantitative engineering assurance.</p>
           </div>
-          <div className="bg-slate-900/80 rounded-2xl shadow-xl border border-slate-800 overflow-hidden glass-card">
+          <div className="bg-slate-900/70 rounded-2xl border border-slate-800 overflow-hidden backdrop-blur-md">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-slate-800/60 border-b border-slate-800">
                   <th className="p-5 sm:p-6 text-xs sm:text-sm font-bold text-slate-400 uppercase tracking-widest w-1/2">Manual Requirement Review</th>
-                  <th className="p-5 sm:p-6 text-xs sm:text-sm font-extrabold text-neon-blue uppercase tracking-widest bg-slate-800/80 w-1/2">
+                  <th className="p-5 sm:p-6 text-xs sm:text-sm font-extrabold text-blue-400 uppercase tracking-widest bg-slate-800/80 w-1/2">
                     <div className="flex items-center gap-2"><Zap className="w-4 h-4 text-amber-400"/> ReqVision Intelligence Platform</div>
                   </th>
                 </tr>
@@ -331,7 +290,7 @@ export default function Home() {
         {/* 5. Platform Capabilities Grid */}
         <div className="mt-32">
           <div className="text-center mb-10">
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-100 tracking-tight">Core Platform Capabilities</h2>
+            <h2 className="text-2xl sm:text-4xl font-extrabold text-white tracking-tight">Core Platform Capabilities</h2>
             <p className="text-slate-400 mt-2 text-sm sm:text-base">Full-lifecycle requirement governance, traceability, and architectural verification.</p>
           </div>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-5xl mx-auto">
@@ -339,13 +298,13 @@ export default function Home() {
               <motion.div 
                 whileHover={{ scale: 1.02, y: -2 }}
                 key={i} 
-                className="p-5 rounded-xl border border-slate-800/90 bg-slate-900/60 shadow-sm hover:shadow-lg hover:border-slate-700 transition-all cursor-default glass-card flex flex-col justify-between"
+                className="p-5 rounded-xl border border-slate-800 bg-slate-900/50 shadow-sm hover:border-slate-700 transition-all cursor-default backdrop-blur-sm flex flex-col justify-between"
               >
                 <div>
-                  <div className="w-9 h-9 rounded-lg bg-neon-blue/10 border border-neon-blue/30 flex items-center justify-center text-neon-blue mb-3">
+                  <div className="w-9 h-9 rounded-lg bg-blue-500/10 border border-blue-500/20 flex items-center justify-center text-blue-400 mb-3">
                     {c.icon}
                   </div>
-                  <h3 className="font-bold text-slate-100 text-sm mb-1.5">{c.title}</h3>
+                  <h3 className="font-bold text-white text-sm mb-1.5">{c.title}</h3>
                   <p className="text-[11px] text-slate-400 leading-relaxed font-normal">{c.desc}</p>
                 </div>
               </motion.div>
@@ -360,8 +319,8 @@ export default function Home() {
         <div className="max-w-7xl mx-auto px-6 grid md:grid-cols-2 gap-8 items-center">
           <div>
             <div className="flex items-center gap-2 mb-2">
-              <BrainCircuit className="w-6 h-6 text-neon-blue" />
-              <span className="text-lg font-bold text-white tracking-tight">ReqVision<span className="text-neon-blue">AI</span></span>
+              <BrainCircuit className="w-6 h-6 text-blue-400" />
+              <span className="text-lg font-bold text-white tracking-tight">ReqVision<span className="text-blue-400">AI</span></span>
             </div>
             <p className="text-slate-400 text-xs font-normal max-w-md">
               Enterprise Software Intelligence Platform delivering continuous requirement drift analysis, multi-document traceability, and automated engineering assurance.
@@ -369,7 +328,7 @@ export default function Home() {
           </div>
           <div className="flex md:justify-end gap-6 text-xs font-semibold">
             <a href="https://github.com/PrathamMrana/ReqVision-AI--N" target="_blank" rel="noreferrer" className="hover:text-white transition-colors flex items-center gap-1.5">
-              <Code className="w-3.5 h-3.5 text-neon-blue"/> GitHub
+              <Code className="w-3.5 h-3.5 text-blue-400"/> GitHub
             </a>
             <a href="#" className="hover:text-white transition-colors flex items-center gap-1.5">
               <FileText className="w-3.5 h-3.5 text-indigo-400"/> Architecture
