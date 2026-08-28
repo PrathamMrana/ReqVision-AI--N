@@ -118,7 +118,7 @@ export default function Home() {
         </div>
       </nav>
 
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-12 pb-24">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8 sm:pt-14 pb-24">
         
         {/* 1. Premium Refined Hero Section */}
         <div className="text-center max-w-4xl mx-auto">
@@ -178,33 +178,30 @@ export default function Home() {
               Explore Traceability Matrix
             </motion.button>
           </motion.div>
+
+          {/* Clean Floating Feature Tags Ribbon */}
+          <motion.div 
+            initial={{ opacity: 0, y: 15 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.3, duration: 0.5 }}
+            className="mt-12 flex flex-wrap justify-center items-center gap-2.5 sm:gap-3"
+          >
+            {[
+              { label: "Multi-Source Documents", icon: "📁" },
+              { label: "Bi-Directional Traceability", icon: "🔗" },
+              { label: "Deterministic Lexical Math", icon: "⚡" },
+              { label: "Architecture Impact Graphs", icon: "🛡️" }
+            ].map((tag, idx) => (
+              <div key={idx} className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-slate-900/80 border border-slate-800 text-slate-300 text-xs font-medium backdrop-blur-md hover:border-slate-700 transition-colors shadow-sm">
+                <span className="text-xs">{tag.icon}</span>
+                <span>{tag.label}</span>
+              </div>
+            ))}
+          </motion.div>
         </div>
 
-        {/* 2. Sleek Metrics Pill Bar */}
-        <motion.div 
-          initial={{ opacity: 0, y: 30 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          className="mt-16 grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto bg-slate-900/70 backdrop-blur-2xl p-5 md:p-6 rounded-2xl border border-slate-800 shadow-xl"
-        >
-          <div className="text-center p-2">
-            <div className="text-xl sm:text-2xl font-extrabold text-neon-blue font-mono">Multi-Source</div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">BRD · SRS · FRD · CR · QA</div>
-          </div>
-          <div className="text-center p-2 border-y sm:border-y-0 sm:border-x border-slate-800/80">
-            <div className="text-xl sm:text-2xl font-extrabold text-slate-100 font-mono">Bi-Directional</div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Traceability & Provenance</div>
-          </div>
-          <div className="text-center p-2 flex flex-col justify-center">
-            <div className="text-xl sm:text-2xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-emerald-400 to-teal-300 font-mono">
-              Zero-Hallucination
-            </div>
-            <div className="text-[11px] font-bold text-slate-400 uppercase tracking-wider mt-0.5">Verified Lexical NLP Math</div>
-          </div>
-        </motion.div>
-
-        {/* 3. Live Demo / Upload Box */}
-        <div className="mt-28 scroll-mt-24" ref={demoRef}>
+        {/* 2. Live Demo / Upload Box */}
+        <div className="mt-24 scroll-mt-20" ref={demoRef}>
           <div className="text-center mb-8">
             <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-neon-blue mb-2">
               <Zap className="w-3.5 h-3.5 text-amber-400" /> Interactive Workbench
@@ -224,7 +221,7 @@ export default function Home() {
           </motion.div>
         </div>
 
-        {/* 4. The 4-Stage Software Intelligence Pipeline */}
+        {/* 3. The 4-Stage Software Intelligence Pipeline */}
         <div className="mt-32">
           <div className="text-center mb-12">
             <div className="inline-flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-indigo-400 mb-2">
@@ -289,7 +286,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 5. Comparison: Legacy Review vs Software Intelligence Platform */}
+        {/* 4. Comparison: Legacy Review vs Software Intelligence Platform */}
         <div className="mt-32 max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-100 tracking-tight">Why Software Intelligence?</h2>
@@ -331,7 +328,7 @@ export default function Home() {
           </div>
         </div>
 
-        {/* 6. Platform Capabilities Grid */}
+        {/* 5. Platform Capabilities Grid */}
         <div className="mt-32">
           <div className="text-center mb-10">
             <h2 className="text-2xl sm:text-4xl font-extrabold text-slate-100 tracking-tight">Core Platform Capabilities</h2>
