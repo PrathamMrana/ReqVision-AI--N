@@ -41,20 +41,76 @@ def extract_text_from_file(file):
 @project_bp.route('/detect', methods=['POST'])
 def detect_documents():
     """
-    Accepts multipart/form-data with multiple files (PDF/DOCX/TXT), 
-    detects their types independently, and extracts their normalized artifacts.
+    Accepts:
+    1. multipart/form-data with multiple files (PDF/DOCX/TXT), OR
+    2. application/json with {"documents": [{"name": "...", "text": "..."}]}
+    
+    Detects their types independently from content, and extracts their normalized artifacts.
     """
     start_time = time.time()
+    processed_documents = []
+    total_artifacts = 0
     
+    # Check if JSON payload was sent
+    if request.is_json:
+        data = request.get_json() or {}
+        doc_list = data.get('documents', [])
+        
+        for idx, doc in enumerate(doc_list):
+            filename = doc.get('name') or f"document_{idx+1}.txt"
+            content = doc.get('text', '')
+            
+            if not content.strip():
+                continue
+                
+            doc_id = doc.get('id') or str(uuid.uuid4())
+            doc_type, confidence, signals = classify_document(content, filename)
+            artifacts = extract_artifacts(doc_id, doc_type, content)
+            total_artifacts += len(artifacts)
+            
+            # Form friendly artifact label
+            type_label_map = {
+                "BRD": "Business Requirements",
+                "SRS": "Software Requirements",
+                "FRD": "Functional Specifications",
+                "User Story": "User Stories",
+                "Test Case": "Test Cases",
+                "Change Request": "Change Requests",
+                "Meeting Minutes": "Action Items",
+                "Release Notes": "Release Items"
+            }
+            label = type_label_map.get(doc_type, "Artifacts")
+            
+            processed_documents.append({
+                "document_id": doc_id,
+                "filename": filename,
+                "document_type": doc_type,
+                "confidence_score": confidence,
+                "signals_matched": signals,
+                "artifact_count": len(artifacts),
+                "artifact_label": f"{len(artifacts)} {label}",
+                "artifacts": artifacts,
+                "content": content
+            })
+            
+        execution_time = time.time() - start_time
+        return jsonify({
+            "success": True,
+            "documents": processed_documents,
+            "summary": {
+                "total_documents": len(processed_documents),
+                "total_artifacts_extracted": total_artifacts,
+                "processing_time_ms": round(execution_time * 1000, 2)
+            }
+        }), 200
+
+    # Multipart file upload
     if 'files' not in request.files:
         return jsonify({"error": "No files provided"}), 400
         
     files = request.files.getlist('files')
     if not files:
         return jsonify({"error": "No files provided"}), 400
-        
-    processed_documents = []
-    total_artifacts = 0
     
     for file in files:
         if file.filename == '':
@@ -77,6 +133,18 @@ def detect_documents():
         
         total_artifacts += len(artifacts)
         
+        type_label_map = {
+            "BRD": "Business Requirements",
+            "SRS": "Software Requirements",
+            "FRD": "Functional Specifications",
+            "User Story": "User Stories",
+            "Test Case": "Test Cases",
+            "Change Request": "Change Requests",
+            "Meeting Minutes": "Action Items",
+            "Release Notes": "Release Items"
+        }
+        label = type_label_map.get(doc_type, "Artifacts")
+        
         processed_documents.append({
             "document_id": doc_id,
             "filename": filename,
@@ -84,7 +152,9 @@ def detect_documents():
             "confidence_score": confidence,
             "signals_matched": signals,
             "artifact_count": len(artifacts),
-            "artifacts": artifacts
+            "artifact_label": f"{len(artifacts)} {label}",
+            "artifacts": artifacts,
+            "content": content
         })
         
     execution_time = time.time() - start_time
