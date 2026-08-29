@@ -40,15 +40,15 @@ DOMAIN_INTENTS = {
         "patterns": [r"\bborrow(?:ing)?\b", r"\bcheck-?out\b", r"\bloan(?:s)?\b", r"\bphysical\s+books\b", r"\bactive\s+loan\b", r"\boverdue\b", r"\bfine(?:s)?\b", r"\bpayment\b"]
     },
     "rbac_permissions": {
-        "keywords": {"role", "roles", "rbac", "permission", "permissions", "access control", "authorization", "librarian", "admin", "matrix", "restricted", "claims"},
-        "patterns": [r"\brole-based\b", r"\bauthorization\b", r"\bpermission(?:s)?\b", r"\brbac\b", r"\blibrarian\b", r"\brestricted\b"]
+        "keywords": {"role", "roles", "rbac", "permission", "permissions", "access control", "authorization", "matrix", "restricted", "claims"},
+        "patterns": [r"\brole-based\b", r"\bauthorization\b", r"\bpermission(?:s)?\b", r"\brbac\b", r"\brestricted\b", r"\baccess\s+control\b"]
     },
     "inventory_records": {
         "keywords": {"inventory", "book records", "catalogue records", "catalog records", "records", "quantities", "maintain books", "update inventory"},
         "patterns": [r"\binventory\b", r"\bbook\s+records\b", r"\bcatalog(?:ue)?\s+records\b", r"\bupdate\s+inventory\b", r"\bmaintain\s+(?:book|inventory|catalog)\b"]
     },
     "reservation_hold": {
-        "keywords": {"reservation", "reserve", "hold", "unavailable book", "queue", "waitlist", "reserved copy", "reserved title"},
+        "keywords": {"reservation", "reserve", "hold", "unavailable book", "queue", "waitlist", "reserved copy", "reserved title", "when reserved"},
         "patterns": [r"\breserv(?:e|ation)\b", r"\bhold\b", r"\bunavailable\s+book\b", r"\breserved\s+(?:copy|title|book)\b"]
     },
     "reporting_analytics": {
@@ -65,7 +65,7 @@ DOMAIN_INTENTS = {
     },
     "notification_alerts": {
         "keywords": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "dispatch", "due date", "push"},
-        "patterns": [r"\bnotification(?:s)?\b", r"\balert(?:s)?\b", r"\breminder(?:s)?\b", r"\bsmtp\b", r"\bpush\b", r"\bdue\s+date\b", r"\bemail\s+(?:alerts?|notifications?|reminders?|dispatch)\b"]
+        "patterns": [r"\bnotification(?:s)?\b", r"\balert(?:s)?\b", r"\breminder(?:s)?\b", r"\bsmtp\b", r"\bpush\b", r"\bdue\s+date\b", r"\bemail\s+(?:alerts?|notifications?|reminders?|dispatch)\b", r"\bpush\s+notifications?\b"]
     },
     "mobile_access": {
         "keywords": {"mobile", "ios", "android", "responsive", "browser view", "layout", "handheld", "apps", "browser access", "phone", "smartphone"},
@@ -162,11 +162,16 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
         tokens_a = set(text_a_clean.split())
         tokens_b = set(text_b_clean.split())
         
-        boilerplate = {"system", "shall", "platform", "provide", "user", "members", "service", "verify", "test", "scenario", "order", "want", "able", "allow"}
+        boilerplate = {"system", "shall", "platform", "provide", "user", "service", "verify", "test", "scenario", "order", "want", "able", "allow"}
         meaningful_a = tokens_a - boilerplate
         meaningful_b = tokens_b - boilerplate
         
         jaccard = len(meaningful_a.intersection(meaningful_b)) / len(meaningful_a.union(meaningful_b)) if meaningful_a.union(meaningful_b) else 0.0
+        
+        # Stem overlap for morphological variants (e.g. borrow/borrowing, book/books)
+        stems_a = set(w[:4] for w in meaningful_a if len(w) >= 4)
+        stems_b = set(w[:4] for w in meaningful_b if len(w) >= 4)
+        stem_jaccard = len(stems_a.intersection(stems_b)) / len(stems_a.union(stems_b)) if stems_a.union(stems_b) else 0.0
         
         # Domain Intent Alignment Boost
         intent_boost = 0.40 if shared_intents else 0.0
@@ -176,7 +181,7 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
         nums_b = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text_b_raw))
         penalty = 0.20 if (nums_a and nums_b and nums_a != nums_b and not shared_intents) else 0.0
         
-        score = max(0.0, min(1.0, ((tfidf_sim * 0.40) + (jaccard * 0.20) + intent_boost) - penalty))
+        score = max(0.0, min(1.0, ((tfidf_sim * 0.35) + (jaccard * 0.15) + (stem_jaccard * 0.15) + intent_boost) - penalty))
         
         common_tokens = list(meaningful_a.intersection(meaningful_b))
         if shared_intents:
@@ -270,8 +275,12 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             evidence = f"Explicit ID reference to {cand['artifact_id']} with domain alignment"
             shared_intents.add("explicit_reference")
 
-        # If an intentional conflict exists with this candidate, emit a CONFLICT record
-        if has_conflict and (sim >= min_partial or shared_intents):
+        # For Change Requests (AFFECTS), do NOT map to contradictory artifacts (e.g. FS-211)
+        if relationship_type == "AFFECTS" and has_conflict:
+            continue
+
+        # If an intentional conflict exists with this candidate in an IMPLEMENTED_BY path, emit a CONFLICT record
+        if has_conflict and (sim >= min_partial or shared_intents) and relationship_type == "IMPLEMENTED_BY":
             matches_found.append({
                 "source_document": source_art["document_name"],
                 "source_type": source_art["document_type"],
@@ -448,7 +457,11 @@ def analyze_project_documents_traceability(project_documents):
     # 5. Change Requests -> Requirements (AFFECTS)
     cr_impacts = []
     for cr in cr_list:
-        rels = find_candidate_relationships(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.18, min_partial=0.10)
+        rels = find_candidate_relationships(cr, srs_list, vectorizer, relationship_type="AFFECTS", min_match=0.18, min_partial=0.10)
+        if rels[0]["status"] == "UNMAPPED":
+            frd_rels = find_candidate_relationships(cr, frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.18, min_partial=0.10)
+            if frd_rels[0]["status"] != "UNMAPPED":
+                rels = frd_rels
         traceability_relationships.extend(rels)
         for rel in rels:
             cr_impacts.append({
