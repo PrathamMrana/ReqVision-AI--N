@@ -13,7 +13,7 @@ export default function Footer() {
               ReqVision <span className="text-primary-500">AI</span>
             </span>
             <p className="text-sm text-slate-400 max-w-sm text-center md:text-left">
-              Intelligent Requirement Drift & Scope Impact Analysis Platform. Built for modern software engineering teams.
+              Software Intelligence & Cross-Document Traceability Platform. Built for modern engineering teams.
             </p>
           </div>
           <div className="flex gap-6 text-sm font-medium">

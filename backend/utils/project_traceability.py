@@ -33,7 +33,7 @@ CONFLICT_RULES = [
 DOMAIN_INTENTS = {
     "search_catalogue": {
         "keywords": {"search", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
-        "patterns": [r"\bsearch\b", r"\bquery\b", r"\bfind\s+books\b", r"\bresponse\s+time\b", r"\bindex\b", r"\bcatalog(?:ue)?\s+search\b", r"\bsearch\s+catalog(?:ue)?\b"]
+        "patterns": [r"\bsearch\b", r"\bquery\b", r"\bfind\s+books\b", r"\bresponse\s+time\b", r"\bindex\b", r"\bcatalog(?:ue)?\s+search\b", r"\bsearch\s+catalog(?:ue)?\b", r"\bcatalogue\s+search\b"]
     },
     "borrowing_checkout": {
         "keywords": {"borrow", "borrowing", "checkout", "check-out", "loan", "loans", "physical books", "items", "privileges", "circulate", "quota", "fines", "fine", "overdue", "payment", "stripe"},
@@ -43,13 +43,17 @@ DOMAIN_INTENTS = {
         "keywords": {"role", "roles", "rbac", "permission", "permissions", "access control", "authorization", "librarian", "admin", "matrix", "restricted", "claims"},
         "patterns": [r"\brole-based\b", r"\bauthorization\b", r"\bpermission(?:s)?\b", r"\brbac\b", r"\blibrarian\b", r"\brestricted\b"]
     },
+    "inventory_records": {
+        "keywords": {"inventory", "book records", "catalogue records", "catalog records", "records", "quantities", "maintain books", "update inventory"},
+        "patterns": [r"\binventory\b", r"\bbook\s+records\b", r"\bcatalog(?:ue)?\s+records\b", r"\bupdate\s+inventory\b", r"\bmaintain\s+(?:book|inventory|catalog)\b"]
+    },
     "reservation_hold": {
-        "keywords": {"reservation", "reserve", "hold", "unavailable book", "queue", "waitlist"},
-        "patterns": [r"\breserv(?:e|ation)\b", r"\bhold\b", r"\bunavailable\s+book\b"]
+        "keywords": {"reservation", "reserve", "hold", "unavailable book", "queue", "waitlist", "reserved copy", "reserved title"},
+        "patterns": [r"\breserv(?:e|ation)\b", r"\bhold\b", r"\bunavailable\s+book\b", r"\breserved\s+(?:copy|title|book)\b"]
     },
     "reporting_analytics": {
-        "keywords": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf", "json", "xml", "printable"},
-        "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\s+(?:report|data|statistics)\b", r"\binventory\s+(?:report|statistics)\b", r"\b(?:pdf|csv)\s+export\b", r"\bexport\s+(?:pdf|csv|monthly|circulation|inventory|statistics)\b"]
+        "keywords": {"report", "reports", "circulation", "statistics", "analytics", "csv", "pdf", "json", "xml", "printable"},
+        "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\b", r"\bmonthly\s+(?:circulation|inventory|report)\b", r"\bstatistics\b", r"\b(?:pdf|csv)\s+export\b", r"\bexport\s+(?:pdf|csv|monthly|circulation|inventory|statistics)\b"]
     },
     "auth_security": {
         "keywords": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile", "sign in"},
@@ -80,8 +84,8 @@ DOMAIN_INTENTS = {
         "patterns": [r"\bscalab(?:le|ility)\b", r"\bconcurrent\b", r"\bthroughput\b", r"\bload\s+balancing\b", r"\btraffic\s+peaks\b", r"\bexamination\s+periods\b"]
     },
     "legacy_tape": {
-        "keywords": {"tape", "magnetic", "archival", "legacy archive", "legacy catalogue export", "tape archive", "catalog tape"},
-        "patterns": [r"\btape\b", r"\bmagnetic\b", r"\blegacy\s+(?:archive|catalog(?:ue)?|tape|export)\b", r"\barchival\s+storage\b", r"\btape\s+archive\b"]
+        "keywords": {"tape", "magnetic", "archival", "legacy archive", "legacy catalogue export", "tape archive", "catalog tape", "historical catalogue"},
+        "patterns": [r"\btape\b", r"\bmagnetic\b", r"\blegacy\s+(?:archive|catalog(?:ue)?|tape|export)\b", r"\barchival\s+storage\b", r"\btape\s+archive\b", r"\bhistorical\s+catalog(?:ue)?\b"]
     },
     "office_equipment": {
         "keywords": {"printer", "printers", "equipment", "room", "furniture", "kiosk", "lunch", "cafeteria", "meeting-room", "schedule update"},
@@ -100,6 +104,11 @@ def detect_domain_intents(text):
         has_pat = any(re.search(pat, t_raw_lower) for pat in cfg["patterns"])
         if has_kw or has_pat:
             detected.add(domain)
+            
+    # Disambiguation: If legacy tape is present, remove search_catalogue
+    if "legacy_tape" in detected:
+        detected.discard("search_catalogue")
+        
     return detected
 
 def check_explainable_conflict(text_a, text_b):
@@ -179,7 +188,7 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
     except Exception as e:
         return 0.0, f"Similarity error: {str(e)}", set()
 
-def find_candidate_relationships(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.20, min_partial=0.12):
+def find_candidate_relationships(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.18, min_partial=0.10):
     """
     Finds all valid candidate relationships for a source artifact, supporting both
     valid implementation matches and intentional conflict matches.
@@ -221,7 +230,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             "evidence": "Administrative/non-software note excluded from engineering matrix"
         }]
 
-    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "unclear", "could mean", "undecided", "ambiguous", "further review"])
+    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "unclear", "could mean", "undecided", "ambiguous", "further review", "resolved"])
     if is_ambiguous:
         return [{
             "source_document": source_art["document_name"],
@@ -282,7 +291,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
 
     # Emit the best valid implementation match
     if best_cand and (best_score >= min_match or bool(best_shared_intents)):
-        conf = "High" if (best_score >= 0.40 or bool(best_shared_intents)) else "Medium"
+        conf = "High" if (best_score >= 0.35 or bool(best_shared_intents)) else "Medium"
         matches_found.append({
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
@@ -294,7 +303,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             "target_text": best_cand["text"],
             "relationship": relationship_type,
             "status": "MATCHED",
-            "similarity": max(best_score, 0.42) if bool(best_shared_intents) else best_score,
+            "similarity": max(best_score, 0.45) if bool(best_shared_intents) else best_score,
             "confidence": conf,
             "evidence": best_evidence
         })
@@ -513,7 +522,6 @@ def analyze_project_documents_traceability(project_documents):
         current_frd = None
         if current_srs:
             frd_rels = find_candidate_relationships(current_srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY")
-            # If conflict exists, note it in evidence chain
             conflict_frd_rel = next((r for r in frd_rels if r["status"] == "CONFLICT"), None)
             valid_frd_rel = next((r for r in frd_rels if r["status"] == "MATCHED"), conflict_frd_rel or frd_rels[0])
             
@@ -653,7 +661,7 @@ def analyze_project_documents_traceability(project_documents):
                 })
 
     # Exact Dynamic Path Coverage Calculations (Using strictly valid relationships)
-    brd_mapped = sum(1 for r in traceability_relationships if r["source_type"] == "BRD" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
+    brd_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "BRD" and r["relationship"] == "TRACEABLE_TO" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
     brd_total = len(brd_list)
     brd_srs_cov = round((brd_mapped / brd_total * 100), 1) if brd_total > 0 else 0.0
 
