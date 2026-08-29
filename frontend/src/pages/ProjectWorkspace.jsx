@@ -84,22 +84,27 @@ export default function ProjectWorkspace() {
   };
 
   const getTypeBadgeStyle = (type) => {
-    switch (type) {
+    const t = (type || '').toUpperCase().replace(' ', '_');
+    switch (t) {
       case 'BRD':
         return 'bg-amber-500/10 text-amber-300 border-amber-500/30';
       case 'SRS':
         return 'bg-blue-500/10 text-blue-300 border-blue-500/30';
       case 'FRD':
         return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
-      case 'User Story':
+      case 'USER_STORY':
+      case 'USER_STORIES':
         return 'bg-purple-500/10 text-purple-300 border-purple-500/30';
-      case 'Test Case':
+      case 'TEST_CASE':
+      case 'TEST_CASES':
         return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
-      case 'Change Request':
+      case 'CHANGE_REQUEST':
+      case 'CHANGE_REQUESTS':
         return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
-      case 'Meeting Minutes':
+      case 'MEETING_MINUTES':
+      case 'MOM':
         return 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30';
-      case 'Release Notes':
+      case 'RELEASE_NOTES':
         return 'bg-teal-500/10 text-teal-300 border-teal-500/30';
       default:
         return 'bg-slate-800 text-slate-300 border-slate-700';
