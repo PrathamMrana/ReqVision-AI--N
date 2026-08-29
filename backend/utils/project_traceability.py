@@ -32,16 +32,12 @@ CONFLICT_RULES = [
 # Discrete Functional Domain & Intent Anchors
 DOMAIN_INTENTS = {
     "search_catalogue": {
-        "keywords": {"search", "catalog", "catalogue", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
-        "patterns": [r"\bsearch\b", r"\bcatalog(?:ue)?\b", r"\bquery\b", r"\bfind\s+books\b", r"\bresponse\s+time\b", r"\bindex\b"]
+        "keywords": {"search", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
+        "patterns": [r"\bsearch\b", r"\bquery\b", r"\bfind\s+books\b", r"\bresponse\s+time\b", r"\bindex\b", r"\bcatalog(?:ue)?\s+search\b", r"\bsearch\s+catalog(?:ue)?\b"]
     },
     "borrowing_checkout": {
-        "keywords": {"borrow", "borrowing", "checkout", "check-out", "loan", "loans", "physical books", "items", "privileges", "circulate", "quota"},
-        "patterns": [r"\bborrow(?:ing)?\b", r"\bcheck-?out\b", r"\bloan\b", r"\bphysical\s+books\b", r"\bactive\s+loan\b"]
-    },
-    "fines_payment": {
-        "keywords": {"payment", "fee", "fines", "fine", "settlement", "pay", "stripe", "overdue", "balance", "gateway", "card", "wallets", "discounts", "waived"},
-        "patterns": [r"\bpayment\b", r"\bfine(?:s)?\b", r"\bfee(?:s)?\b", r"\boverdue\b", r"\bsettlement\b", r"\bpay\b", r"\bstripe\b"]
+        "keywords": {"borrow", "borrowing", "checkout", "check-out", "loan", "loans", "physical books", "items", "privileges", "circulate", "quota", "fines", "fine", "overdue", "payment", "stripe"},
+        "patterns": [r"\bborrow(?:ing)?\b", r"\bcheck-?out\b", r"\bloan(?:s)?\b", r"\bphysical\s+books\b", r"\bactive\s+loan\b", r"\boverdue\b", r"\bfine(?:s)?\b", r"\bpayment\b"]
     },
     "rbac_permissions": {
         "keywords": {"role", "roles", "rbac", "permission", "permissions", "access control", "authorization", "librarian", "admin", "matrix", "restricted", "claims"},
@@ -52,20 +48,20 @@ DOMAIN_INTENTS = {
         "patterns": [r"\breserv(?:e|ation)\b", r"\bhold\b", r"\bunavailable\s+book\b"]
     },
     "reporting_analytics": {
-        "keywords": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf", "export", "json", "xml", "printable"},
-        "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\s+(?:report|data|statistics)\b", r"\binventory\b", r"\bexport\b", r"\bpdf\b", r"\bcsv\b"]
+        "keywords": {"report", "reports", "circulation", "inventory", "statistics", "analytics", "csv", "pdf", "json", "xml", "printable"},
+        "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\s+(?:report|data|statistics)\b", r"\binventory\s+(?:report|statistics)\b", r"\b(?:pdf|csv)\s+export\b", r"\bexport\s+(?:pdf|csv|monthly|circulation|inventory|statistics)\b"]
     },
     "auth_security": {
         "keywords": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile", "sign in"},
-        "patterns": [r"\bauthenticat(?:e|ion)\b", r"\blogin\b", r"\bcredential(?:s)?\b", r"\bpassword\b", r"\bmfa\b", r"\btotp\b", r"\boauth\b", r"\bsign\s+in\b"]
+        "patterns": [r"\bauthenticat(?:e|ion)\b", r"\blogin\b", r"\bcredential(?:s)?\b", r"\bpassword\b", r"\bmfa\b", r"\btotp\b", r"\boauth\b", r"\bsign\s+in\b", r"\bemail\s+and\s+password\b"]
     },
     "loan_renewal": {
         "keywords": {"renew", "renewal", "renewals", "renewing", "extend", "duration", "active loan"},
         "patterns": [r"\brenew(?:al|ing)?\b", r"\bextend\s+(?:loan|due\s+date|duration)\b"]
     },
     "notification_alerts": {
-        "keywords": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "email", "dispatch", "due date", "push"},
-        "patterns": [r"\bnotification(?:s)?\b", r"\balert(?:s)?\b", r"\breminder(?:s)?\b", r"\bsmtp\b", r"\bemail\b", r"\bpush\b", r"\bdue\s+date\b"]
+        "keywords": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "dispatch", "due date", "push"},
+        "patterns": [r"\bnotification(?:s)?\b", r"\balert(?:s)?\b", r"\breminder(?:s)?\b", r"\bsmtp\b", r"\bpush\b", r"\bdue\s+date\b", r"\bemail\s+(?:alerts?|notifications?|reminders?|dispatch)\b"]
     },
     "mobile_access": {
         "keywords": {"mobile", "ios", "android", "responsive", "browser view", "layout", "handheld", "apps", "browser access", "phone", "smartphone"},
@@ -84,12 +80,12 @@ DOMAIN_INTENTS = {
         "patterns": [r"\bscalab(?:le|ility)\b", r"\bconcurrent\b", r"\bthroughput\b", r"\bload\s+balancing\b", r"\btraffic\s+peaks\b", r"\bexamination\s+periods\b"]
     },
     "legacy_tape": {
-        "keywords": {"tape", "magnetic", "archival", "legacy archive", "legacy catalogue export"},
-        "patterns": [r"\btape\b", r"\bmagnetic\b", r"\blegacy\s+archive\b", r"\barchival\s+storage\b"]
+        "keywords": {"tape", "magnetic", "archival", "legacy archive", "legacy catalogue export", "tape archive", "catalog tape"},
+        "patterns": [r"\btape\b", r"\bmagnetic\b", r"\blegacy\s+(?:archive|catalog(?:ue)?|tape|export)\b", r"\barchival\s+storage\b", r"\btape\s+archive\b"]
     },
     "office_equipment": {
-        "keywords": {"printer", "printers", "equipment", "room", "furniture", "kiosk", "lunch", "cafeteria", "meeting-room"},
-        "patterns": [r"\bprinter(?:s)?\b", r"\bequipment\b", r"\bmeeting-room\b", r"\blunch\b", r"\bcafeteria\b", r"\bfurniture\b"]
+        "keywords": {"printer", "printers", "equipment", "room", "furniture", "kiosk", "lunch", "cafeteria", "meeting-room", "schedule update"},
+        "patterns": [r"\bprinter(?:s)?\b", r"\bequipment\b", r"\bmeeting-room\b", r"\blunch\b", r"\bcafeteria\b", r"\bfurniture\b", r"\blunch\s+schedule\b"]
     }
 }
 
@@ -140,10 +136,9 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
     intents_a = detect_domain_intents(text_a_raw)
     intents_b = detect_domain_intents(text_b_raw)
 
-    # Reject physical hardware/office items from matching software specifications
-    if ("office_equipment" in intents_a and "office_equipment" not in intents_b) or \
-       ("office_equipment" in intents_b and "office_equipment" not in intents_a):
-        return 0.0, "Physical equipment requirement rejected from software matrix", set()
+    # Reject non-software items (office equipment, cafeteria, lunch) from matching
+    if "office_equipment" in intents_a or "office_equipment" in intents_b:
+        return 0.0, "Non-software administrative note rejected from matrix", set()
 
     shared_intents = intents_a.intersection(intents_b)
     
@@ -184,13 +179,14 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
     except Exception as e:
         return 0.0, f"Similarity error: {str(e)}", set()
 
-def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.20, min_partial=0.12):
+def find_candidate_relationships(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.20, min_partial=0.12):
     """
-    Matches a single source artifact against candidate artifacts using domain-gated selection.
-    Returns: relationship_record (dict)
+    Finds all valid candidate relationships for a source artifact, supporting both
+    valid implementation matches and intentional conflict matches.
+    Returns: list of relationship_records (list of dicts)
     """
     if not candidate_arts:
-        return {
+        return [{
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
             "source_artifact": source_art["artifact_id"],
@@ -204,23 +200,53 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "similarity": 0.0,
             "confidence": "Low",
             "evidence": "No candidate artifacts found in target document"
-        }
+        }]
 
+    # Check for ambiguity in Meeting Minutes or non-software administrative notes
+    source_intents = detect_domain_intents(source_art["text"])
+    if "office_equipment" in source_intents:
+        return [{
+            "source_document": source_art["document_name"],
+            "source_type": source_art["document_type"],
+            "source_artifact": source_art["artifact_id"],
+            "source_text": source_art["text"],
+            "target_document": "—",
+            "target_type": "—",
+            "target_artifact": "—",
+            "target_text": "—",
+            "relationship": relationship_type,
+            "status": "UNMAPPED",
+            "similarity": 0.0,
+            "confidence": "High",
+            "evidence": "Administrative/non-software note excluded from engineering matrix"
+        }]
+
+    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "unclear", "could mean", "undecided", "ambiguous", "further review"])
+    if is_ambiguous:
+        return [{
+            "source_document": source_art["document_name"],
+            "source_type": source_art["document_type"],
+            "source_artifact": source_art["artifact_id"],
+            "source_text": source_art["text"],
+            "target_document": "—",
+            "target_type": "—",
+            "target_artifact": "—",
+            "target_text": "—",
+            "relationship": relationship_type,
+            "status": "UNMAPPED",
+            "similarity": 0.0,
+            "confidence": "Medium",
+            "evidence": "Ambiguous requirement: consensus was not agreed in meeting"
+        }]
+
+    matches_found = []
     best_cand = None
     best_score = -1.0
     best_evidence = ""
     best_shared_intents = set()
-    conflict_cand = None
-    conflict_reason = None
 
     for cand in candidate_arts:
-        # 1. Check for intentional explainable contradiction
-        has_conflict, reason = check_explainable_conflict(source_art["text"], cand["text"])
-        if has_conflict:
-            conflict_cand = cand
-            conflict_reason = reason
-        
-        # 2. Compute domain-gated similarity
+        has_conflict, conflict_reason = check_explainable_conflict(source_art["text"], cand["text"])
         sim, evidence, shared_intents = compute_domain_lexical_similarity(
             vectorizer,
             source_art["clean_text"],
@@ -229,39 +255,35 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             cand["text"]
         )
 
+        # If an intentional conflict exists with this candidate, emit a CONFLICT record
+        if has_conflict and (sim >= min_partial or shared_intents):
+            matches_found.append({
+                "source_document": source_art["document_name"],
+                "source_type": source_art["document_type"],
+                "source_artifact": source_art["artifact_id"],
+                "source_text": source_art["text"],
+                "target_document": cand["document_name"],
+                "target_type": cand["document_type"],
+                "target_artifact": cand["artifact_id"],
+                "target_text": cand["text"],
+                "relationship": relationship_type,
+                "status": "CONFLICT",
+                "similarity": max(sim, 0.48),
+                "confidence": "High",
+                "evidence": conflict_reason
+            })
+            continue
+
         if sim > best_score:
             best_score = sim
             best_cand = cand
             best_evidence = evidence
             best_shared_intents = shared_intents
 
-    # Conflict check with direct attribution
-    if conflict_cand and (best_score >= min_partial or best_shared_intents):
-        return {
-            "source_document": source_art["document_name"],
-            "source_type": source_art["document_type"],
-            "source_artifact": source_art["artifact_id"],
-            "source_text": source_art["text"],
-            "target_document": conflict_cand["document_name"],
-            "target_type": conflict_cand["document_type"],
-            "target_artifact": conflict_cand["artifact_id"],
-            "target_text": conflict_cand["text"],
-            "relationship": relationship_type,
-            "status": "CONFLICT",
-            "similarity": best_score if best_score > 0 else 0.45,
-            "confidence": "High",
-            "evidence": conflict_reason
-        }
-
-    # Ambiguity check for Meeting Notes
-    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "unclear", "could mean", "undecided", "ambiguous", "further review"])
-
-    # If domain intent strongly matched, accept as MATCHED (preventing false PARTIAL)
+    # Emit the best valid implementation match
     if best_cand and (best_score >= min_match or bool(best_shared_intents)):
         conf = "High" if (best_score >= 0.40 or bool(best_shared_intents)) else "Medium"
-        status = "PARTIAL" if is_ambiguous else "MATCHED"
-        ev = f"Ambiguity noted: {best_evidence}" if is_ambiguous else best_evidence
-        return {
+        matches_found.append({
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
             "source_artifact": source_art["artifact_id"],
@@ -271,13 +293,13 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "target_artifact": best_cand["artifact_id"],
             "target_text": best_cand["text"],
             "relationship": relationship_type,
-            "status": status,
-            "similarity": max(best_score, 0.35) if bool(best_shared_intents) else best_score,
-            "confidence": conf if not is_ambiguous else "Medium",
-            "evidence": ev
-        }
+            "status": "MATCHED",
+            "similarity": max(best_score, 0.42) if bool(best_shared_intents) else best_score,
+            "confidence": conf,
+            "evidence": best_evidence
+        })
     elif best_cand and best_score >= min_partial:
-        return {
+        matches_found.append({
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
             "source_artifact": source_art["artifact_id"],
@@ -291,9 +313,10 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "similarity": best_score,
             "confidence": "Medium",
             "evidence": f"Partial conceptual overlap ({best_evidence})"
-        }
-    else:
-        return {
+        })
+
+    if not matches_found:
+        matches_found.append({
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
             "source_artifact": source_art["artifact_id"],
@@ -307,7 +330,9 @@ def match_artifact_to_candidates(source_art, candidate_arts, vectorizer, relatio
             "similarity": 0.0,
             "confidence": "Low",
             "evidence": "No target artifact satisfied domain and lexical match criteria"
-        }
+        })
+
+    return matches_found
 
 def analyze_project_documents_traceability(project_documents):
     """
@@ -387,55 +412,57 @@ def analyze_project_documents_traceability(project_documents):
     
     # 1. BRD -> SRS (TRACEABLE_TO)
     for brd in brd_list:
-        rel = match_artifact_to_candidates(brd, srs_list, vectorizer, relationship_type="TRACEABLE_TO")
-        traceability_relationships.append(rel)
+        rels = find_candidate_relationships(brd, srs_list, vectorizer, relationship_type="TRACEABLE_TO")
+        traceability_relationships.extend(rels)
 
     # 2. SRS -> FRD (IMPLEMENTED_BY)
     for srs in srs_list:
-        rel = match_artifact_to_candidates(srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY")
-        traceability_relationships.append(rel)
+        rels = find_candidate_relationships(srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY")
+        traceability_relationships.extend(rels)
 
     # 3. SRS / FRD -> User Story (REALIZED_BY)
     for srs in srs_list:
-        rel = match_artifact_to_candidates(srs, us_list, vectorizer, relationship_type="REALIZED_BY")
-        traceability_relationships.append(rel)
+        rels = find_candidate_relationships(srs, us_list, vectorizer, relationship_type="REALIZED_BY")
+        traceability_relationships.extend(rels)
 
     # 4. User Story -> Test Case (VERIFIED_BY)
     for us in us_list:
-        rel = match_artifact_to_candidates(us, tc_list, vectorizer, relationship_type="VERIFIED_BY")
-        traceability_relationships.append(rel)
+        rels = find_candidate_relationships(us, tc_list, vectorizer, relationship_type="VERIFIED_BY")
+        traceability_relationships.extend(rels)
 
     # 5. Change Requests -> Requirements (AFFECTS)
     cr_impacts = []
     for cr in cr_list:
-        rel = match_artifact_to_candidates(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.18, min_partial=0.10)
-        traceability_relationships.append(rel)
-        cr_impacts.append({
-            "cr_id": cr["artifact_id"],
-            "cr_doc": cr["document_name"],
-            "cr_text": cr["text"],
-            "affected_doc": rel["target_document"],
-            "affected_req_id": rel["target_artifact"],
-            "status": rel["status"],
-            "similarity": rel["similarity"],
-            "evidence": rel["evidence"]
-        })
+        rels = find_candidate_relationships(cr, srs_list + frd_list, vectorizer, relationship_type="AFFECTS", min_match=0.18, min_partial=0.10)
+        traceability_relationships.extend(rels)
+        for rel in rels:
+            cr_impacts.append({
+                "cr_id": cr["artifact_id"],
+                "cr_doc": cr["document_name"],
+                "cr_text": cr["text"],
+                "affected_doc": rel["target_document"],
+                "affected_req_id": rel["target_artifact"],
+                "status": rel["status"],
+                "similarity": rel["similarity"],
+                "evidence": rel["evidence"]
+            })
 
     # 6. Meeting Minutes -> Artifacts (RELATED_TO)
     mom_links = []
     for mom in mom_list:
-        rel = match_artifact_to_candidates(mom, srs_list + cr_list + brd_list, vectorizer, relationship_type="RELATED_TO", min_match=0.18, min_partial=0.10)
-        traceability_relationships.append(rel)
-        mom_links.append({
-            "mom_id": mom["artifact_id"],
-            "mom_doc": mom["document_name"],
-            "mom_text": mom["text"],
-            "referenced_doc": rel["target_document"],
-            "referenced_req_id": rel["target_artifact"],
-            "status": rel["status"],
-            "similarity": rel["similarity"],
-            "evidence": rel["evidence"]
-        })
+        rels = find_candidate_relationships(mom, srs_list + cr_list + brd_list, vectorizer, relationship_type="RELATED_TO", min_match=0.18, min_partial=0.10)
+        traceability_relationships.extend(rels)
+        for rel in rels:
+            mom_links.append({
+                "mom_id": mom["artifact_id"],
+                "mom_doc": mom["document_name"],
+                "mom_text": mom["text"],
+                "referenced_doc": rel["target_document"],
+                "referenced_req_id": rel["target_artifact"],
+                "status": rel["status"],
+                "similarity": rel["similarity"],
+                "evidence": rel["evidence"]
+            })
 
     # End-to-End Traceability Chains Assembly (BRD -> SRS -> FRD -> US -> TC)
     root_artifacts = brd_list if brd_list else srs_list if srs_list else all_artifacts
@@ -462,17 +489,18 @@ def analyze_project_documents_traceability(project_documents):
                 "name": root_art["document_name"],
                 "text": root_art["text"]
             }
-            srs_rel = match_artifact_to_candidates(root_art, srs_list, vectorizer, relationship_type="TRACEABLE_TO")
-            if srs_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
-                matched_srs_art = next((s for s in srs_list if s["artifact_id"] == srs_rel["target_artifact"]), None)
+            srs_rels = find_candidate_relationships(root_art, srs_list, vectorizer, relationship_type="TRACEABLE_TO")
+            valid_srs_rel = next((r for r in srs_rels if r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]), srs_rels[0])
+            if valid_srs_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
+                matched_srs_art = next((s for s in srs_list if s["artifact_id"] == valid_srs_rel["target_artifact"]), None)
                 if matched_srs_art:
                     chain["srs"] = {
                         "id": matched_srs_art["artifact_id"],
                         "name": matched_srs_art["document_name"],
                         "text": matched_srs_art["text"]
                     }
-                    chain["evidence_chain"].append(f"BRD→SRS [{srs_rel['status']}]: {srs_rel['evidence']}")
-            current_srs = next((s for s in srs_list if s["artifact_id"] == srs_rel["target_artifact"]), None)
+                    chain["evidence_chain"].append(f"BRD→SRS [{valid_srs_rel['status']}]: {valid_srs_rel['evidence']}")
+            current_srs = next((s for s in srs_list if s["artifact_id"] == valid_srs_rel["target_artifact"]), None)
         else:
             current_srs = root_art
             chain["srs"] = {
@@ -484,47 +512,56 @@ def analyze_project_documents_traceability(project_documents):
         # Step 2: FRD
         current_frd = None
         if current_srs:
-            frd_rel = match_artifact_to_candidates(current_srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY")
-            if frd_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
-                matched_frd_art = next((f for f in frd_list if f["artifact_id"] == frd_rel["target_artifact"]), None)
+            frd_rels = find_candidate_relationships(current_srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY")
+            # If conflict exists, note it in evidence chain
+            conflict_frd_rel = next((r for r in frd_rels if r["status"] == "CONFLICT"), None)
+            valid_frd_rel = next((r for r in frd_rels if r["status"] == "MATCHED"), conflict_frd_rel or frd_rels[0])
+            
+            if conflict_frd_rel:
+                chain["evidence_chain"].append(f"SRS→FRD [CONFLICT]: {conflict_frd_rel['evidence']}")
+
+            if valid_frd_rel and valid_frd_rel["status"] in ["MATCHED", "PARTIAL"]:
+                matched_frd_art = next((f for f in frd_list if f["artifact_id"] == valid_frd_rel["target_artifact"]), None)
                 if matched_frd_art:
                     chain["frd"] = {
                         "id": matched_frd_art["artifact_id"],
                         "name": matched_frd_art["document_name"],
                         "text": matched_frd_art["text"]
                     }
-                    chain["evidence_chain"].append(f"SRS→FRD [{frd_rel['status']}]: {frd_rel['evidence']}")
+                    chain["evidence_chain"].append(f"SRS→FRD [{valid_frd_rel['status']}]: {valid_frd_rel['evidence']}")
                     current_frd = matched_frd_art
 
         # Step 3: User Story
         current_us = None
         target_for_us = current_frd or current_srs
         if target_for_us:
-            us_rel = match_artifact_to_candidates(target_for_us, us_list, vectorizer, relationship_type="REALIZED_BY")
-            if us_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
-                matched_us_art = next((u for u in us_list if u["artifact_id"] == us_rel["target_artifact"]), None)
+            us_rels = find_candidate_relationships(target_for_us, us_list, vectorizer, relationship_type="REALIZED_BY")
+            valid_us_rel = next((u for u in us_rels if u["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]), us_rels[0])
+            if valid_us_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
+                matched_us_art = next((u for u in us_list if u["artifact_id"] == valid_us_rel["target_artifact"]), None)
                 if matched_us_art:
                     chain["user_story"] = {
                         "id": matched_us_art["artifact_id"],
                         "name": matched_us_art["document_name"],
                         "text": matched_us_art["text"]
                     }
-                    chain["evidence_chain"].append(f"FRD→US [{us_rel['status']}]: {us_rel['evidence']}")
+                    chain["evidence_chain"].append(f"FRD→US [{valid_us_rel['status']}]: {valid_us_rel['evidence']}")
                     current_us = matched_us_art
 
         # Step 4: Test Case
         target_for_tc = current_us or current_frd or current_srs
         if target_for_tc:
-            tc_rel = match_artifact_to_candidates(target_for_tc, tc_list, vectorizer, relationship_type="VERIFIED_BY")
-            if tc_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
-                matched_tc_art = next((t for t in tc_list if t["artifact_id"] == tc_rel["target_artifact"]), None)
+            tc_rels = find_candidate_relationships(target_for_tc, tc_list, vectorizer, relationship_type="VERIFIED_BY")
+            valid_tc_rel = next((t for t in tc_rels if t["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]), tc_rels[0])
+            if valid_tc_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
+                matched_tc_art = next((t for t in tc_list if t["artifact_id"] == valid_tc_rel["target_artifact"]), None)
                 if matched_tc_art:
                     chain["test_case"] = {
                         "id": matched_tc_art["artifact_id"],
                         "name": matched_tc_art["document_name"],
                         "text": matched_tc_art["text"]
                     }
-                    chain["evidence_chain"].append(f"US→TC [{tc_rel['status']}]: {tc_rel['evidence']}")
+                    chain["evidence_chain"].append(f"US→TC [{valid_tc_rel['status']}]: {valid_tc_rel['evidence']}")
 
         # Determine overall chain status
         chain_statuses = [ev.split('[')[1].split(']')[0] for ev in chain["evidence_chain"] if '[' in ev]
@@ -602,7 +639,7 @@ def analyze_project_documents_traceability(project_documents):
         if rel["target_artifact"] != "—":
             source_node = f"{rel['source_document']}::{rel['source_artifact']}"
             target_node = f"{rel['target_document']}::{rel['target_artifact']}"
-            edge_key = f"{source_node}->{target_node}:{rel['relationship']}"
+            edge_key = f"{source_node}->{target_node}:{rel['relationship']}:{rel['status']}"
             if edge_key not in seen_edges:
                 seen_edges.add(edge_key)
                 graph_edges.append({
@@ -615,20 +652,19 @@ def analyze_project_documents_traceability(project_documents):
                     "evidence": rel["evidence"]
                 })
 
-    # Exact Dynamic Path Coverage Calculations
+    # Exact Dynamic Path Coverage Calculations (Using strictly valid relationships)
     brd_mapped = sum(1 for r in traceability_relationships if r["source_type"] == "BRD" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
     brd_total = len(brd_list)
     brd_srs_cov = round((brd_mapped / brd_total * 100), 1) if brd_total > 0 else 0.0
 
-    srs_frd_mapped = sum(1 for r in traceability_relationships if r["source_type"] == "SRS" and r["relationship"] == "IMPLEMENTED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
+    srs_frd_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "SRS" and r["relationship"] == "IMPLEMENTED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
     srs_total = len(srs_list)
     srs_frd_cov = round((srs_frd_mapped / srs_total * 100), 1) if srs_total > 0 else 0.0
 
-    srs_us_mapped = sum(1 for r in traceability_relationships if r["source_type"] == "SRS" and r["relationship"] == "REALIZED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
-    srs_total = len(srs_list)
+    srs_us_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "SRS" and r["relationship"] == "REALIZED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
     srs_us_cov = round((srs_us_mapped / srs_total * 100), 1) if srs_total > 0 else 0.0
 
-    us_tc_mapped = sum(1 for r in traceability_relationships if r["source_type"] == "User Story" and r["relationship"] == "VERIFIED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
+    us_tc_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "User Story" and r["relationship"] == "VERIFIED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
     us_total = len(us_list)
     us_tc_cov = round((us_tc_mapped / us_total * 100), 1) if us_total > 0 else 0.0
 
