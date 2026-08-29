@@ -56,8 +56,8 @@ DOMAIN_INTENTS = {
         "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\b", r"\bmonthly\s+(?:circulation|inventory|report)\b", r"\bstatistics\b", r"\b(?:pdf|csv)\s+export\b", r"\bexport\s+(?:pdf|csv|monthly|circulation|inventory|statistics)\b"]
     },
     "auth_security": {
-        "keywords": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "totp", "oauth", "profile", "sign in"},
-        "patterns": [r"\bauthenticat(?:e|ion)\b", r"\blogin\b", r"\bcredential(?:s)?\b", r"\bpassword\b", r"\bmfa\b", r"\btotp\b", r"\boauth\b", r"\bsign\s+in\b", r"\bemail\s+and\s+password\b"]
+        "keywords": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "2fa", "totp", "oauth", "profile", "sign in"},
+        "patterns": [r"\bauthenticat(?:e|ion)\b", r"\blogin\b", r"\bcredential(?:s)?\b", r"\bpassword\b", r"\bmfa\b", r"\b2fa\b", r"\btotp\b", r"\boauth\b", r"\bsign\s+in\b", r"\bemail\s+and\s+password\b"]
     },
     "loan_renewal": {
         "keywords": {"renew", "renewal", "renewals", "renewing", "extend", "duration", "active loan"},
@@ -230,7 +230,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             "evidence": "Administrative/non-software note excluded from engineering matrix"
         }]
 
-    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "unclear", "could mean", "undecided", "ambiguous", "further review", "resolved"])
+    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "did not agree", "unclear", "could mean", "undecided", "ambiguous", "further review", "unresolved"])
     if is_ambiguous:
         return [{
             "source_document": source_art["document_name"],
@@ -263,6 +263,12 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             source_art["text"],
             cand["text"]
         )
+
+        # Explicit reference boost if source text explicitly cites target artifact ID
+        if re.search(r'\b' + re.escape(cand["artifact_id"]) + r'\b', source_art["text"]):
+            sim = max(sim, 0.55)
+            evidence = f"Explicit ID reference to {cand['artifact_id']} with domain alignment"
+            shared_intents.add("explicit_reference")
 
         # If an intentional conflict exists with this candidate, emit a CONFLICT record
         if has_conflict and (sim >= min_partial or shared_intents):

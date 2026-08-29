@@ -13,11 +13,11 @@ doc1.add_paragraph('BR-002: The platform shall support automated late fee calcul
 doc1.add_paragraph('BR-003: The system must enforce role-based access control for Librarians, Members, and System Administrators.')
 doc1.add_paragraph('BR-004: The platform shall generate monthly inventory and circulation reports for library management analytics.')
 doc1.add_paragraph('BR-005: The system shall provide secure user authentication and account credential management.')
-doc1.add_paragraph('BR-006: The platform shall allow members to renew active book loans online before the due date.')
+doc1.add_paragraph('BR-006: The platform shall allow administrators to maintain book records and inventory quantities.')
 doc1.add_paragraph('BR-007: The platform shall enforce maximum allowable loan quota limit per member and support mobile responsive access.')
 doc1.add_paragraph('BR-008: The system shall dispatch automated notification alerts to members regarding upcoming loan due dates.')
 doc1.add_paragraph('BR-009: The platform shall maintain an immutable audit trail for all circulation status changes and financial transactions.')
-doc1.add_paragraph('BR-010: The platform must support high traffic throughput during university examination periods.') # Intentionally unmapped in SRS
+doc1.add_paragraph('BR-010: The platform must support high traffic throughput during university examination periods.')
 doc1.save('tests/test_docs/01_BRD_Online_Library.docx')
 
 # 2. 02_SRS_Online_Library.docx
@@ -29,10 +29,10 @@ doc2.add_paragraph('FR-102: The system shall calculate overdue fines daily and p
 doc2.add_paragraph('FR-103: The system shall enforce role-based authorization matrix for Member, Librarian, and Administrator permissions.')
 doc2.add_paragraph('FR-104: The system shall compile and export monthly circulation and inventory statistics in PDF and CSV formats.')
 doc2.add_paragraph('FR-105: Users shall authenticate with email and password using salted one-way hash verification.')
-doc2.add_paragraph('FR-106: The system shall allow members to execute loan renewals if no reservation hold exists on the book.')
+doc2.add_paragraph('FR-106: Administrators shall create, edit, and remove catalogue records and update inventory quantities.')
 doc2.add_paragraph('FR-107: The notification service shall dispatch email alerts 48 hours prior to book loan due dates via SMTP.')
 doc2.add_paragraph('FR-108: The checkout service shall validate maximum allowable loan quota per member and provide mobile browser access.')
-doc2.add_paragraph('FR-109: The logging module shall record all book status transitions and checkout events to an immutable audit table.')
+doc2.add_paragraph('FR-109: Premium members shall access electronic books and audiobooks.')
 doc2.add_paragraph('FR-110: The platform shall support scalable high throughput architecture capable of handling concurrent requests during traffic peaks.')
 doc2.add_paragraph('FR-111: The system shall interface with legacy magnetic tape archival storage.') # Intentionally unmapped in BRD
 doc2.save('tests/test_docs/02_SRS_Online_Library.docx')
@@ -45,11 +45,11 @@ doc3.add_paragraph('FS-201: Search service indexes book title, author, ISBN, and
 doc3.add_paragraph('FS-202: Payment integration handles Stripe and credit card gateway fee settlement with transaction logs.')
 doc3.add_paragraph('FS-203: Authorization middleware validates JWT claims and role permissions on every API request.')
 doc3.add_paragraph('FS-204: Report engine queries monthly circulation data and formats data tables into printable documents.')
-doc3.add_paragraph('FS-205: Authentication controller verifies member login credentials against encrypted user database.')
-doc3.add_paragraph('FS-206: Loan renewal endpoint validates due date eligibility and increments loan duration by 14 days.')
+doc3.add_paragraph('FS-205: Authentication controller verifies member login credentials against encrypted user database using salted bcrypt hashes.')
+doc3.add_paragraph('FS-206: Catalogue management service allows authorized staff to update book inventory counts.')
 doc3.add_paragraph('FS-207: Scheduled background cron triggers due-date reminder emails via SMTP server.')
 doc3.add_paragraph('FS-208: Mobile client layout and quota validation check rejects checkout request if member has reached active loan limit.')
-doc3.add_paragraph('FS-209: Audit interceptor persists actor ID, timestamp, and action payload to PostgreSQL audit log.')
+doc3.add_paragraph('FS-209: Digital content library authorizes Premium members to stream and read eBooks and audiobooks.')
 doc3.add_paragraph('FS-210: Scalability load balancing specification distributing high throughput traffic across backend cluster.')
 doc3.add_paragraph('FS-211: The service shall store passwords using reversible encryption so administrators can recover the original password.') # INTENTIONAL CONFLICT with FR-105
 doc3.save('tests/test_docs/03_FRD_Online_Library.docx')
@@ -62,11 +62,11 @@ doc4.add_paragraph('US-302: As a Member, I want to pay my late return fines onli
 doc4.add_paragraph('US-303: As a Librarian, I want to access restricted inventory controls so that I can catalog new books.')
 doc4.add_paragraph('US-304: As a Library Director, I want to download monthly circulation reports so that I can monitor library usage.')
 doc4.add_paragraph('US-305: As a User, I want to securely log in with my email and password so that I can access my profile.')
-doc4.add_paragraph('US-306: As a Member, I want to renew my borrowed book online so that I avoid overdue penalty fees.')
+doc4.add_paragraph('US-306: As an Administrator, I want to update inventory quantity records so that catalog counts remain accurate.')
 doc4.add_paragraph('US-307: As a Member, I want to receive an email notification before my book is due so that I return it on time.')
 doc4.add_paragraph('US-308: As a Member, I want to access my library loan quota from mobile browser.')
-doc4.add_paragraph('US-309: As an Administrator, I want to inspect system audit logs so that I can track book status modifications.')
-doc4.add_paragraph('US-310: As an Administrator, I want to export legacy catalog tape archive format.') # Intentionally unmapped
+doc4.add_paragraph('US-309: As a Premium Member, I want to stream digital audiobooks and read eBooks.')
+doc4.add_paragraph('US-310: As an Administrator, I want to export historical catalogue data to a legacy tape archive format.') # Intentionally unmapped
 doc4.add_paragraph('US-311: As a User, I want to sign in with social OAuth providers.')
 doc4.save('tests/test_docs/04_User_Stories_Online_Library.docx')
 
@@ -79,10 +79,10 @@ doc5.add_paragraph('TC-403: Test Scenario: Overdue Fee Payment. Verify payment p
 doc5.add_paragraph('TC-404: Test Scenario: Role-Based Authorization. Verify Member account cannot access Librarian management endpoints.')
 doc5.add_paragraph('TC-405: Test Scenario: Monthly Report Generation. Verify circulation PDF export contains total loan metrics.')
 doc5.add_paragraph('TC-406: Test Scenario: User Authentication. Verify valid email and password returns JWT authentication token.')
-doc5.add_paragraph('TC-407: Test Scenario: Book Loan Renewal. Verify loan renewal extends due date when no hold exists.')
+doc5.add_paragraph('TC-407: Test Scenario: Inventory Quantity Update. Verify administrator updates book inventory counts accurately.')
 doc5.add_paragraph('TC-408: Test Scenario: Due Date Email Dispatch. Verify reminder email is sent 48 hours prior to loan expiration.')
 doc5.add_paragraph('TC-409: Test Scenario: Mobile Browser Quota Validation. Verify mobile browser view displays active loan count.')
-doc5.add_paragraph('TC-410: Test Scenario: Audit Logging. Verify checkout event inserts corresponding record into audit log table.')
+doc5.add_paragraph('TC-410: Test Scenario: Digital Content Access. Verify Premium member successfully streams audiobooks and reads eBooks.')
 doc5.add_paragraph('TC-411: Test Scenario: Cafeteria Barcode Scanner. Verify food barcode scan.') # Intentionally unmapped
 doc5.save('tests/test_docs/05_Test_Cases_Online_Library.docx')
 
@@ -90,20 +90,25 @@ doc5.save('tests/test_docs/05_Test_Cases_Online_Library.docx')
 doc6 = Document()
 doc6.add_heading('Change Request - Engineering Change Collection', 0)
 doc6.add_paragraph('CR-501: Reduce catalogue search query response time from 2 seconds to 1 second.')
-doc6.add_paragraph('CR-502: Enforce Multi-Factor Authentication (MFA) via TOTP for all Librarian and Admin logins.')
-doc6.add_paragraph('CR-503: Add dedicated mobile responsive layouts and quota warnings for members.')
+doc6.add_paragraph('CR-502: Replace password-only login with password + optional 2FA / TOTP for all Librarian and Admin logins.')
+doc6.add_paragraph('CR-503: Add dedicated iOS and Android mobile responsive applications for members.')
 doc6.add_paragraph('CR-504: Increase supported concurrent users from 5,000 to 20,000 for examination peaks.')
 doc6.add_paragraph('CR-505: Add push notifications in addition to email for due date alerts.')
-doc6.add_paragraph('CR-506: Allow Premium members to settle overdue fines with waived penalty discounts.')
-doc6.add_paragraph('CR-507: Replace office printers in administration office.') # Intentionally unmapped
+doc6.add_paragraph('CR-506: Allow Premium members to borrow up to 10 physical books.')
+doc6.add_paragraph('CR-507: Replace office printer fleet in administration office.') # Intentionally unmapped
 doc6.save('tests/test_docs/06_Change_Request_Online_Library.docx')
 
 # 7. 07_Meeting_Minutes_Online_Library.docx
 doc7 = Document()
 doc7.add_heading('Meeting Minutes - Architecture Review Board', 0)
-doc7.add_paragraph('MOM-601: Architecture Review Board reviewed search indexing latency and approved CR-501.')
-doc7.add_paragraph('MOM-602: Security committee confirmed MFA rollout CR-502 in Sprint 14.')
-doc7.add_paragraph('MOM-603: General administrative lunch schedule update.') # Intentionally unmapped
+doc7.add_paragraph('DEC-601: The board confirmed the catalog search capability BR-001.')
+doc7.add_paragraph('DEC-602: Security committee approved 2FA rollout CR-502.')
+doc7.add_paragraph('DEC-603: Architecture committee reviewed mobile responsive layout FR-108.')
+doc7.add_paragraph('DEC-604: Product team confirmed push notifications CR-505.')
+doc7.add_paragraph('DEC-605: Infrastructure team discussed high traffic examination periods BR-010.')
+doc7.add_paragraph('DEC-606: Compliance team verified immutable audit logging BR-009.')
+doc7.add_paragraph('DEC-607: Team discussed faster checkout but did not agree whether it refers to borrowing books or payment processing.') # Unresolved
+doc7.add_paragraph('DEC-608: Team reviewed purchasing new meeting-room equipment.') # Non-software
 doc7.save('tests/test_docs/07_Meeting_Minutes_Online_Library.docx')
 
 print('All 7 test documents successfully generated in tests/test_docs/!')
