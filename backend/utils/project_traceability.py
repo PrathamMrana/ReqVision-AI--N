@@ -3,8 +3,10 @@ import numpy as np
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from utils.preprocess import clean_text
+from utils.classifier import normalize_document_type
+from utils.extractor import determine_canonical_artifact_type
 
-# Explainable Security and Behavioral Conflict Rules
+# Explainable Security and Architectural Conflict Rules
 CONFLICT_RULES = [
     {
         "domain": "security_passwords",
@@ -29,72 +31,76 @@ CONFLICT_RULES = [
     }
 ]
 
-# Discrete Functional Domain & Intent Anchors
+# Generalized Domain & Functional Intent Anchors
 DOMAIN_INTENTS = {
-    "search_catalogue": {
-        "keywords": {"search", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate"},
-        "patterns": [r"\bsearch\b", r"\bquery\b", r"\bfind\s+books\b", r"\bresponse\s+time\b", r"\bindex\b", r"\bcatalog(?:ue)?\s+search\b", r"\bsearch\s+catalog(?:ue)?\b", r"\bcatalogue\s+search\b"]
+    "search_navigation": {
+        "keywords": {"search", "query", "find", "discover", "browse", "index", "latency", "metadata", "sub-200ms", "filtering", "locate", "catalog", "catalogue", "arrival", "board", "eta", "tracking", "countdown", "schedule", "real-time"},
+        "patterns": [r"\bsearch\b", r"\bquery\b", r"\bfind\s+books\b", r"\bresponse\s+time\b", r"\bindex\b", r"\bcatalog(?:ue)?\b", r"\barrival\s+board\b", r"\beta\s+tracking\b", r"\breal-?time\b", r"\bcountdown\b"]
     },
-    "borrowing_checkout": {
-        "keywords": {"borrow", "borrowing", "checkout", "check-out", "loan", "loans", "physical books", "items", "privileges", "circulate", "quota", "fines", "fine", "overdue", "payment", "stripe"},
-        "patterns": [r"\bborrow(?:ing)?\b", r"\bcheck-?out\b", r"\bloan(?:s)?\b", r"\bphysical\s+books\b", r"\bactive\s+loan\b", r"\boverdue\b", r"\bfine(?:s)?\b", r"\bpayment\b"]
+    "booking_reservation": {
+        "keywords": {"reserve", "reservation", "booking", "book", "seat", "seats", "borrow", "borrowing", "checkout", "check-out", "loan", "loans", "quota", "fines", "fine", "overdue", "payment", "stripe", "boarding pass", "physical books"},
+        "patterns": [r"\breserv(?:e|ation)\b", r"\bseat(?:s)?\b", r"\bbook(?:ing)?\b", r"\bborrow(?:ing)?\b", r"\bcheck-?out\b", r"\bloan(?:s)?\b", r"\bboarding\s+pass\b", r"\boverdue\b", r"\bfine(?:s)?\b", r"\bpayment\b"]
     },
-    "rbac_permissions": {
-        "keywords": {"role", "roles", "rbac", "permission", "permissions", "access control", "authorization", "matrix", "restricted", "claims"},
-        "patterns": [r"\brole-based\b", r"\bauthorization\b", r"\bpermission(?:s)?\b", r"\brbac\b", r"\brestricted\b", r"\baccess\s+control\b"]
+    "access_authorization": {
+        "keywords": {"role", "roles", "rbac", "permission", "permissions", "access control", "authorization", "matrix", "restricted", "claims", "staff", "faculty", "credentials", "employee", "unauthorized", "routes", "prevent"},
+        "patterns": [r"\brole-based\b", r"\bauthorization\b", r"\bpermission(?:s)?\b", r"\brbac\b", r"\bstaff-?only\b", r"\brestricted\b", r"\baccess\s+control\b", r"\bunauthorized\b", r"\bstaff\s+only\b"]
     },
-    "inventory_records": {
-        "keywords": {"inventory", "book records", "catalogue records", "catalog records", "records", "quantities", "maintain books", "update inventory"},
-        "patterns": [r"\binventory\b", r"\bbook\s+records\b", r"\bcatalog(?:ue)?\s+records\b", r"\bupdate\s+inventory\b", r"\bmaintain\s+(?:book|inventory|catalog)\b"]
+    "inventory_capacity": {
+        "keywords": {"inventory", "book records", "records", "quantities", "maintain books", "capacity", "passenger", "seat limit", "fleet", "vehicle capacity", "adjust", "update inventory"},
+        "patterns": [r"\binventory\b", r"\bbook\s+records\b", r"\bupdate\s+inventory\b", r"\bvehicle\s+capacity\b", r"\bpassenger\s+limit\b", r"\bcapacity\s+admin\b"]
     },
-    "reservation_hold": {
-        "keywords": {"reservation", "reserve", "hold", "unavailable book", "queue", "waitlist", "reserved copy", "reserved title", "when reserved"},
-        "patterns": [r"\breserv(?:e|ation)\b", r"\bhold\b", r"\bunavailable\s+book\b", r"\breserved\s+(?:copy|title|book)\b"]
+    "cancellation_return": {
+        "keywords": {"cancel", "cancellation", "renew", "renewal", "renewals", "renewing", "extend", "cutoff", "restore", "release", "active loan"},
+        "patterns": [r"\bcancel(?:lation)?\b", r"\bcutoff\b", r"\brenew(?:al|ing)?\b", r"\bextend\s+loan\b", r"\brelease\s+seat\b"]
     },
     "reporting_analytics": {
-        "keywords": {"report", "reports", "circulation", "statistics", "analytics", "csv", "pdf", "json", "xml", "printable"},
-        "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\b", r"\bmonthly\s+(?:circulation|inventory|report)\b", r"\bstatistics\b", r"\b(?:pdf|csv)\s+export\b", r"\bexport\s+(?:pdf|csv|monthly|circulation|inventory|statistics)\b"]
+        "keywords": {"report", "reports", "circulation", "statistics", "analytics", "csv", "pdf", "json", "xml", "printable", "ridership", "fleet operations", "utilization", "dashboard", "metrics"},
+        "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\b", r"\banalytics\b", r"\bridership\b", r"\bfleet\s+operations\b", r"\butilization\b", r"\bdashboard\b", r"\bexport\s+(?:pdf|csv)\b"]
     },
     "auth_security": {
         "keywords": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "2fa", "totp", "oauth", "profile", "sign in"},
         "patterns": [r"\bauthenticat(?:e|ion)\b", r"\blogin\b", r"\bcredential(?:s)?\b", r"\bpassword\b", r"\bmfa\b", r"\b2fa\b", r"\btotp\b", r"\boauth\b", r"\bsign\s+in\b", r"\bemail\s+and\s+password\b"]
     },
-    "loan_renewal": {
-        "keywords": {"renew", "renewal", "renewals", "renewing", "extend", "duration", "active loan"},
-        "patterns": [r"\brenew(?:al|ing)?\b", r"\bextend\s+(?:loan|due\s+date|duration)\b"]
-    },
     "notification_alerts": {
-        "keywords": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "dispatch", "due date", "push"},
-        "patterns": [r"\bnotification(?:s)?\b", r"\balert(?:s)?\b", r"\breminder(?:s)?\b", r"\bsmtp\b", r"\bpush\b", r"\bdue\s+date\b", r"\bemail\s+(?:alerts?|notifications?|reminders?|dispatch)\b", r"\bpush\s+notifications?\b"]
+        "keywords": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "dispatch", "due date", "push", "sms", "delay", "service alert", "audio", "voice", "diversion"},
+        "patterns": [r"\bnotification(?:s)?\b", r"\balert(?:s)?\b", r"\breminder(?:s)?\b", r"\bsmtp\b", r"\bpush\b", r"\bsms\b", r"\bdelay\b", r"\bservice\s+alert\b", r"\bvoice\b", r"\baudio\b"]
     },
-    "mobile_access": {
+    "mobile_responsive": {
         "keywords": {"mobile", "ios", "android", "responsive", "browser view", "layout", "handheld", "apps", "browser access", "phone", "smartphone"},
         "patterns": [r"\bmobile\b", r"\bios\b", r"\bandroid\b", r"\bresponsive\b", r"\bbrowser\s+access\b", r"\bbrowser\s+view\b"]
     },
-    "digital_library": {
+    "accessibility_mobility": {
+        "keywords": {"accessibility", "accessible", "wheelchair", "ramp", "mobility", "boarding", "disability", "friendly"},
+        "patterns": [r"\baccessib(?:le|ility)\b", r"\bwheelchair\b", r"\bramp\b", r"\bmobility\b", r"\bwheelchair-friendly\b"]
+    },
+    "digital_media": {
         "keywords": {"ebook", "ebooks", "audiobook", "audiobooks", "digital library", "electronic books", "streaming", "media", "content"},
         "patterns": [r"\be-?books?\b", r"\baudiobooks?\b", r"\bdigital\s+library\b", r"\belectronic\s+books\b"]
     },
     "audit_logging": {
-        "keywords": {"audit", "trail", "immutable", "logging", "log", "logs", "transitions", "history", "postgres", "table", "interceptor"},
-        "patterns": [r"\baudit\b", r"\bimmutable\b", r"\blogging\b", r"\baudit\s+table\b", r"\baudit\s+log\b", r"\bstatus\s+transitions\b"]
+        "keywords": {"audit", "trail", "ledger", "immutable", "logging", "log", "logs", "transitions", "history", "postgres", "table", "interceptor", "adherence", "regulatory"},
+        "patterns": [r"\baudit\b", r"\bledger\b", r"\bimmutable\b", r"\blogging\b", r"\baudit\s+table\b", r"\baudit\s+log\b", r"\bstatus\s+transitions\b"]
     },
-    "scalability_perf": {
-        "keywords": {"scalability", "concurrent", "throughput", "capacity", "load balancing", "peaks", "cluster", "traffic", "load", "examination periods"},
-        "patterns": [r"\bscalab(?:le|ility)\b", r"\bconcurrent\b", r"\bthroughput\b", r"\bload\s+balancing\b", r"\btraffic\s+peaks\b", r"\bexamination\s+periods\b"]
+    "scalability_performance": {
+        "keywords": {"scalability", "concurrent", "throughput", "capacity", "load balancing", "peaks", "cluster", "traffic", "load", "examination", "rush", "high availability", "uptime", "99.9%"},
+        "patterns": [r"\bscalab(?:le|ility)\b", r"\bconcurrent\b", r"\bthroughput\b", r"\bload\s+balancing\b", r"\btraffic\s+peaks\b", r"\brush\s+hours\b", r"\bhigh\s+availability\b", r"\buptime\b"]
     },
-    "legacy_tape": {
-        "keywords": {"tape", "magnetic", "archival", "legacy archive", "legacy catalogue export", "tape archive", "catalog tape", "historical catalogue"},
-        "patterns": [r"\btape\b", r"\bmagnetic\b", r"\blegacy\s+(?:archive|catalog(?:ue)?|tape|export)\b", r"\barchival\s+storage\b", r"\btape\s+archive\b", r"\bhistorical\s+catalog(?:ue)?\b"]
+    "telemetry_gps": {
+        "keywords": {"gps", "coordinate", "coordinates", "refresh", "interval", "satellite", "telemetry", "500ms", "250ms"},
+        "patterns": [r"\bgps\b", r"\bcoordinate(?:s)?\b", r"\brefresh\s+interval\b", r"\btelemetry\b"]
     },
-    "office_equipment": {
-        "keywords": {"printer", "printers", "equipment", "room", "furniture", "kiosk", "lunch", "cafeteria", "meeting-room", "schedule update"},
-        "patterns": [r"\bprinter(?:s)?\b", r"\bequipment\b", r"\bmeeting-room\b", r"\blunch\b", r"\bcafeteria\b", r"\bfurniture\b", r"\blunch\s+schedule\b"]
+    "legacy_archive": {
+        "keywords": {"tape", "magnetic", "archival", "legacy archive", "legacy catalogue export", "tape archive", "catalog tape", "historical catalogue", "legacy vehicle", "registration records"},
+        "patterns": [r"\btape\b", r"\bmagnetic\b", r"\blegacy\s+(?:archive|catalog(?:ue)?|tape|export|vehicle)\b", r"\barchival\s+storage\b", r"\btape\s+archive\b"]
+    },
+    "hardware_nonsoftware": {
+        "keywords": {"printer", "printers", "parking-gate", "barrier", "kiosk", "lunch", "cafeteria", "meeting-room equipment", "meal plan", "dining card", "furniture", "hardware", "shift-planning", "payroll"},
+        "patterns": [r"\bprinter(?:s)?\b", r"\bparking-gate\b", r"\bbarrier\b", r"\bhardware\b", r"\bmeeting-room\b", r"\blunch\b", r"\bcafeteria\b", r"\bmeal\s+plan\b", r"\bdining\s+card\b", r"\bshift-planning\b", r"\bpayroll\b"]
     }
 }
 
 def detect_domain_intents(text):
-    """Identifies functional domain intents present in a requirement statement."""
+    """Identifies functional domain intents present in a statement."""
     t_clean = set(clean_text(text).split())
     t_raw_lower = text.lower()
     
@@ -105,9 +111,8 @@ def detect_domain_intents(text):
         if has_kw or has_pat:
             detected.add(domain)
             
-    # Disambiguation: If legacy tape is present, remove search_catalogue
-    if "legacy_tape" in detected:
-        detected.discard("search_catalogue")
+    if "legacy_archive" in detected:
+        detected.discard("search_navigation")
         
     return detected
 
@@ -145,13 +150,13 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
     intents_a = detect_domain_intents(text_a_raw)
     intents_b = detect_domain_intents(text_b_raw)
 
-    # Reject non-software items (office equipment, cafeteria, lunch) from matching
-    if "office_equipment" in intents_a or "office_equipment" in intents_b:
-        return 0.0, "Non-software administrative note rejected from matrix", set()
+    # Reject non-software items (hardware, parking-gate, cafeteria, meal plans, shift-planning) from matching software specs
+    if "hardware_nonsoftware" in intents_a or "hardware_nonsoftware" in intents_b:
+        return 0.0, "Non-software physical/administrative note excluded from matrix", set()
 
     shared_intents = intents_a.intersection(intents_b)
     
-    # If both have detected intents but share ZERO intents, strictly reject
+    # If both have detected intents but share ZERO intents, strictly reject cross-domain false positive
     if intents_a and intents_b and not shared_intents:
         return 0.0, f"Domain mismatch: [{', '.join(intents_a)}] vs [{', '.join(intents_b)}]", set()
 
@@ -162,13 +167,17 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
         tokens_a = set(text_a_clean.split())
         tokens_b = set(text_b_clean.split())
         
-        boilerplate = {"system", "shall", "platform", "provide", "user", "service", "verify", "test", "scenario", "order", "want", "able", "allow"}
+        boilerplate = {
+            "system", "shall", "platform", "provide", "user", "service", "verify", "test",
+            "scenario", "order", "want", "able", "allow", "feature", "module", "endpoint",
+            "controller", "interface", "component", "function", "rider", "member", "student"
+        }
         meaningful_a = tokens_a - boilerplate
         meaningful_b = tokens_b - boilerplate
         
         jaccard = len(meaningful_a.intersection(meaningful_b)) / len(meaningful_a.union(meaningful_b)) if meaningful_a.union(meaningful_b) else 0.0
         
-        # Stem overlap for morphological variants (e.g. borrow/borrowing, book/books)
+        # Stem overlap for morphological variants
         stems_a = set(w[:4] for w in meaningful_a if len(w) >= 4)
         stems_b = set(w[:4] for w in meaningful_b if len(w) >= 4)
         stem_jaccard = len(stems_a.intersection(stems_b)) / len(stems_a.union(stems_b)) if stems_a.union(stems_b) else 0.0
@@ -176,19 +185,29 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
         # Domain Intent Alignment Boost
         intent_boost = 0.40 if shared_intents else 0.0
         
-        # Numbers penalty if specific numerical limits differ
+        # Keyphrase multi-word overlap boost
+        keyphrases = [
+            r"\bstaff-?only\b", r"\barrival\s+board\b", r"\bservice\s+alert\b",
+            r"\bwheelchair\b", r"\baudit\s+ledger\b", r"\bseat\s+reservation\b",
+            r"\blive\s+arrival\b", r"\bridership\b", r"\bcancellation\b", r"\bpassenger\s+limit\b",
+            r"\bgps\b", r"\bcoordinate(?:s)?\b", r"\bhigh\s+availability\b", r"\buptime\b"
+        ]
+        shared_kp = [kp for kp in keyphrases if re.search(kp, text_a_raw, re.I) and re.search(kp, text_b_raw, re.I)]
+        kp_boost = 0.20 if shared_kp else 0.0
+        
+        # Numbers penalty if specific numerical limits differ without shared intents
         nums_a = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text_a_raw))
         nums_b = set(re.findall(r'\b\d+(?:\.\d+)?%?\b', text_b_raw))
         penalty = 0.20 if (nums_a and nums_b and nums_a != nums_b and not shared_intents) else 0.0
         
-        score = max(0.0, min(1.0, ((tfidf_sim * 0.35) + (jaccard * 0.15) + (stem_jaccard * 0.15) + intent_boost) - penalty))
+        score = max(0.0, min(1.0, ((tfidf_sim * 0.35) + (jaccard * 0.15) + (stem_jaccard * 0.15) + intent_boost + kp_boost) - penalty))
         
         common_tokens = list(meaningful_a.intersection(meaningful_b))
         if shared_intents:
             common_tokens = list(shared_intents) + common_tokens
         unique_common = list(dict.fromkeys(common_tokens))[:4]
         
-        evidence = f"Domain alignment on [{', '.join(unique_common) if unique_common else 'domain terms'}] (Score: {score:.2f}, TF-IDF: {tfidf_sim:.2f})"
+        evidence = f"Domain alignment on [{', '.join(unique_common) if unique_common else 'domain concepts'}] (Score: {score:.2f}, TF-IDF: {tfidf_sim:.2f})"
         return round(score, 4), evidence, shared_intents
     except Exception as e:
         return 0.0, f"Similarity error: {str(e)}", set()
@@ -203,10 +222,12 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         return [{
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
+            "source_artifact_type": source_art["artifact_type"],
             "source_artifact": source_art["artifact_id"],
             "source_text": source_art["text"],
             "target_document": "—",
             "target_type": "—",
+            "target_artifact_type": "—",
             "target_artifact": "—",
             "target_text": "—",
             "relationship": relationship_type,
@@ -218,21 +239,23 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
 
     # Check for ambiguity in Meeting Minutes or non-software administrative notes
     source_intents = detect_domain_intents(source_art["text"])
-    if "office_equipment" in source_intents:
+    if "hardware_nonsoftware" in source_intents:
         return [{
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
+            "source_artifact_type": source_art["artifact_type"],
             "source_artifact": source_art["artifact_id"],
             "source_text": source_art["text"],
             "target_document": "—",
             "target_type": "—",
+            "target_artifact_type": "—",
             "target_artifact": "—",
             "target_text": "—",
             "relationship": relationship_type,
             "status": "UNMAPPED",
             "similarity": 0.0,
             "confidence": "High",
-            "evidence": "Administrative/non-software note excluded from engineering matrix"
+            "evidence": "Administrative / physical non-software item excluded from engineering matrix"
         }]
 
     is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "did not agree", "unclear", "could mean", "undecided", "ambiguous", "further review", "unresolved"])
@@ -240,17 +263,19 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         return [{
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
+            "source_artifact_type": source_art["artifact_type"],
             "source_artifact": source_art["artifact_id"],
             "source_text": source_art["text"],
             "target_document": "—",
             "target_type": "—",
+            "target_artifact_type": "—",
             "target_artifact": "—",
             "target_text": "—",
             "relationship": relationship_type,
             "status": "UNMAPPED",
             "similarity": 0.0,
             "confidence": "Medium",
-            "evidence": "Ambiguous requirement: consensus was not agreed in meeting"
+            "evidence": "Ambiguous requirement: consensus was not agreed in review"
         }]
 
     matches_found = []
@@ -284,10 +309,12 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             matches_found.append({
                 "source_document": source_art["document_name"],
                 "source_type": source_art["document_type"],
+                "source_artifact_type": source_art["artifact_type"],
                 "source_artifact": source_art["artifact_id"],
                 "source_text": source_art["text"],
                 "target_document": cand["document_name"],
                 "target_type": cand["document_type"],
+                "target_artifact_type": cand["artifact_type"],
                 "target_artifact": cand["artifact_id"],
                 "target_text": cand["text"],
                 "relationship": relationship_type,
@@ -310,10 +337,12 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         matches_found.append({
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
+            "source_artifact_type": source_art["artifact_type"],
             "source_artifact": source_art["artifact_id"],
             "source_text": source_art["text"],
             "target_document": best_cand["document_name"],
             "target_type": best_cand["document_type"],
+            "target_artifact_type": best_cand["artifact_type"],
             "target_artifact": best_cand["artifact_id"],
             "target_text": best_cand["text"],
             "relationship": relationship_type,
@@ -326,10 +355,12 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         matches_found.append({
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
+            "source_artifact_type": source_art["artifact_type"],
             "source_artifact": source_art["artifact_id"],
             "source_text": source_art["text"],
             "target_document": best_cand["document_name"],
             "target_type": best_cand["document_type"],
+            "target_artifact_type": best_cand["artifact_type"],
             "target_artifact": best_cand["artifact_id"],
             "target_text": best_cand["text"],
             "relationship": relationship_type,
@@ -343,10 +374,12 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         matches_found.append({
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
+            "source_artifact_type": source_art["artifact_type"],
             "source_artifact": source_art["artifact_id"],
             "source_text": source_art["text"],
             "target_document": "—",
             "target_type": "—",
+            "target_artifact_type": "—",
             "target_artifact": "—",
             "target_text": "—",
             "relationship": relationship_type,
@@ -375,15 +408,17 @@ def analyze_project_documents_traceability(project_documents):
     for doc in project_documents:
         doc_id = doc.get("document_id") or doc.get("id")
         doc_name = doc.get("filename") or doc.get("name") or "Document"
-        doc_type = doc.get("document_type") or "Unknown"
+        raw_doc_type = doc.get("document_type") or "UNKNOWN"
+        norm_doc_type = normalize_document_type(raw_doc_type)
         doc_artifacts = doc.get("artifacts") or []
 
-        if doc_type not in docs_by_type:
-            docs_by_type[doc_type] = []
+        if norm_doc_type not in docs_by_type:
+            docs_by_type[norm_doc_type] = []
 
         valid_doc_artifacts = []
         for art in doc_artifacts:
-            art_id = art.get("artifact_id") or f"ART-{len(all_artifacts)+1:03d}"
+            raw_art_id = art.get("artifact_id") or f"ART-{len(all_artifacts)+1:03d}"
+            art_id = raw_art_id.upper()
             canonical_key = f"{doc_name}::{art_id}"
             
             if canonical_key in seen_canonical_ids:
@@ -393,12 +428,15 @@ def analyze_project_documents_traceability(project_documents):
             art_text = art.get("text", "").strip()
             clean = clean_text(art_text)
             
+            # Canonical artifact type mapping ensuring FS-201 is always FUNCTIONAL_SPECIFICATION / FRD
+            canonical_art_type, canonical_art_doc_type = determine_canonical_artifact_type(art_id, norm_doc_type)
+            
             norm_art = {
                 "artifact_id": art_id,
-                "artifact_type": art.get("artifact_type") or "Requirement",
+                "artifact_type": canonical_art_type,
                 "document_id": doc_id,
                 "document_name": doc_name,
-                "document_type": doc_type,
+                "document_type": canonical_art_doc_type,
                 "text": art_text,
                 "clean_text": clean,
                 "section": art.get("section") or "General",
@@ -407,8 +445,8 @@ def analyze_project_documents_traceability(project_documents):
             all_artifacts.append(norm_art)
             valid_doc_artifacts.append(norm_art)
 
-        docs_by_type[doc_type].extend(valid_doc_artifacts)
-        doc_type_counts[doc_type] = len(docs_by_type[doc_type])
+        docs_by_type[norm_doc_type].extend(valid_doc_artifacts)
+        doc_type_counts[norm_doc_type] = len(docs_by_type[norm_doc_type])
 
     # Build Project-wide TF-IDF Vectorizer
     all_clean_texts = [a["clean_text"] for a in all_artifacts if a["clean_text"]]
@@ -423,15 +461,14 @@ def analyze_project_documents_traceability(project_documents):
         vectorizer.fit(all_clean_texts)
 
     # Artifact collections by standard tiers
-    brd_list = docs_by_type.get("BRD", [])
-    srs_list = docs_by_type.get("SRS", [])
-    frd_list = docs_by_type.get("FRD", [])
-    us_list = docs_by_type.get("User Story", [])
-    tc_list = docs_by_type.get("Test Case", [])
-    cr_list = docs_by_type.get("Change Request", [])
-    mom_list = docs_by_type.get("Meeting Minutes", [])
+    brd_list = [a for a in all_artifacts if a["document_type"] == "BRD" or a["artifact_type"] == "BRD_REQUIREMENT"]
+    srs_list = [a for a in all_artifacts if a["document_type"] == "SRS" or a["artifact_type"] in ["FUNCTIONAL_REQUIREMENT", "NON_FUNCTIONAL_REQUIREMENT"]]
+    frd_list = [a for a in all_artifacts if a["document_type"] == "FRD" or a["artifact_type"] == "FUNCTIONAL_SPECIFICATION"]
+    us_list = [a for a in all_artifacts if a["document_type"] == "USER_STORY" or a["artifact_type"] == "USER_STORY"]
+    tc_list = [a for a in all_artifacts if a["document_type"] == "TEST_CASE" or a["artifact_type"] == "TEST_CASE"]
+    cr_list = [a for a in all_artifacts if a["document_type"] == "CHANGE_REQUEST" or a["artifact_type"] == "CHANGE_REQUEST"]
+    mom_list = [a for a in all_artifacts if a["document_type"] == "MEETING_MINUTES" or a["artifact_type"] in ["DECISION", "ACTION_ITEM"]]
 
-    # Direct Pairwise Relationships List (The Exact Source -> Target Matrix)
     traceability_relationships = []
     
     # 1. BRD -> SRS (TRACEABLE_TO)
@@ -440,16 +477,20 @@ def analyze_project_documents_traceability(project_documents):
         traceability_relationships.extend(rels)
 
     # 2. SRS -> FRD (IMPLEMENTED_BY)
-    for srs in srs_list:
+    # Candidate pool MUST strictly be FUNCTIONAL_SPECIFICATION artifacts from FRD
+    srs_functional_list = [s for s in srs_list if s["artifact_type"] == "FUNCTIONAL_REQUIREMENT"]
+    for srs in srs_functional_list:
         rels = find_candidate_relationships(srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY")
         traceability_relationships.extend(rels)
 
     # 3. SRS / FRD -> User Story (REALIZED_BY)
+    # Candidate pool MUST strictly be USER_STORY artifacts
     for srs in srs_list:
         rels = find_candidate_relationships(srs, us_list, vectorizer, relationship_type="REALIZED_BY")
         traceability_relationships.extend(rels)
 
     # 4. User Story -> Test Case (VERIFIED_BY)
+    # Candidate pool MUST strictly be TEST_CASE artifacts from TEST_CASE documents
     for us in us_list:
         rels = find_candidate_relationships(us, tc_list, vectorizer, relationship_type="VERIFIED_BY")
         traceability_relationships.extend(rels)
@@ -636,7 +677,6 @@ def analyze_project_documents_traceability(project_documents):
                 "reason": rel["evidence"]
             })
 
-    # Status counts over all pairwise direct relationships
     status_counts = {
         "MATCHED": sum(1 for r in traceability_relationships if r["status"] == "MATCHED"),
         "PARTIAL": sum(1 for r in traceability_relationships if r["status"] == "PARTIAL"),
@@ -644,7 +684,7 @@ def analyze_project_documents_traceability(project_documents):
         "UNMAPPED": sum(1 for r in traceability_relationships if r["status"] == "UNMAPPED")
     }
 
-    # Traceability Graph (Real Nodes and Discovered Edges)
+    # Traceability Graph (Immutable Nodes and Verified Edges)
     graph_nodes = []
     graph_edges = []
     node_ids_added = set()
@@ -655,6 +695,7 @@ def analyze_project_documents_traceability(project_documents):
             graph_nodes.append({
                 "id": node_id,
                 "artifact_id": art["artifact_id"],
+                "artifact_type": art["artifact_type"],
                 "document_name": art["document_name"],
                 "document_type": art["document_type"],
                 "text": art["text"][:100] + ("..." if len(art["text"]) > 100 else "")
@@ -679,19 +720,20 @@ def analyze_project_documents_traceability(project_documents):
                     "evidence": rel["evidence"]
                 })
 
-    # Exact Dynamic Path Coverage Calculations (Using strictly valid relationships)
+    # Exact Path Coverage Calculations
     brd_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "BRD" and r["relationship"] == "TRACEABLE_TO" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
     brd_total = len(brd_list)
     brd_srs_cov = round((brd_mapped / brd_total * 100), 1) if brd_total > 0 else 0.0
 
     srs_frd_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "SRS" and r["relationship"] == "IMPLEMENTED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
-    srs_total = len(srs_list)
-    srs_frd_cov = round((srs_frd_mapped / srs_total * 100), 1) if srs_total > 0 else 0.0
+    srs_func_total = len(srs_functional_list)
+    srs_frd_cov = round((srs_frd_mapped / srs_func_total * 100), 1) if srs_func_total > 0 else 0.0
 
     srs_us_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "SRS" and r["relationship"] == "REALIZED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
+    srs_total = len(srs_list)
     srs_us_cov = round((srs_us_mapped / srs_total * 100), 1) if srs_total > 0 else 0.0
 
-    us_tc_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "User Story" and r["relationship"] == "VERIFIED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
+    us_tc_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "USER_STORY" and r["relationship"] == "VERIFIED_BY" and r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]))
     us_total = len(us_list)
     us_tc_cov = round((us_tc_mapped / us_total * 100), 1) if us_total > 0 else 0.0
 
@@ -702,10 +744,10 @@ def analyze_project_documents_traceability(project_documents):
     return {
         "success": True,
         "mode": "project_intelligence",
-        "title": "ReqVision AI — Software Intelligence Report",
+        "title": "ReqVision AI — Software Intelligence & Cross-Document Traceability",
         "analysis_type": "Cross-Document Lexical Traceability",
         "project": {
-            "project_name": "Online Library Platform",
+            "project_name": "Project Workspace",
             "mode": "project_intelligence",
             "total_documents": len(project_documents)
         },
@@ -713,8 +755,8 @@ def analyze_project_documents_traceability(project_documents):
             {
                 "document_id": doc.get("document_id") or doc.get("id"),
                 "filename": doc.get("filename") or doc.get("name"),
-                "document_type": doc.get("document_type"),
-                "artifact_count": len(docs_by_type.get(doc.get("document_type"), []))
+                "document_type": normalize_document_type(doc.get("document_type")),
+                "artifact_count": len([a for a in all_artifacts if a["document_id"] == (doc.get("document_id") or doc.get("id")) or a["document_name"] == (doc.get("filename") or doc.get("name"))])
             } for doc in project_documents
         ],
         "artifacts": all_artifacts,
@@ -733,7 +775,7 @@ def analyze_project_documents_traceability(project_documents):
         "coverage": {
             "overall_percentage": overall_cov,
             "brd_to_srs": f"{brd_srs_cov}% ({brd_mapped}/{brd_total})",
-            "srs_to_frd": f"{srs_frd_cov}% ({srs_frd_mapped}/{srs_total})",
+            "srs_to_frd": f"{srs_frd_cov}% ({srs_frd_mapped}/{srs_func_total})",
             "srs_to_user_story": f"{srs_us_cov}% ({srs_us_mapped}/{srs_total})",
             "user_story_to_test_case": f"{us_tc_cov}% ({us_tc_mapped}/{us_total})"
         },
@@ -746,7 +788,7 @@ def analyze_project_documents_traceability(project_documents):
             "status_breakdown": status_counts,
             "path_coverage": {
                 "brd_to_srs_coverage": f"{brd_srs_cov}% ({brd_mapped}/{brd_total})",
-                "srs_to_frd_coverage": f"{srs_frd_cov}% ({srs_frd_mapped}/{srs_total})",
+                "srs_to_frd_coverage": f"{srs_frd_cov}% ({srs_frd_mapped}/{srs_func_total})",
                 "srs_to_user_story_coverage": f"{srs_us_cov}% ({srs_us_mapped}/{srs_total})",
                 "user_story_to_test_case_coverage": f"{us_tc_cov}% ({us_tc_mapped}/{us_total})"
             }

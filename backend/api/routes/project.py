@@ -66,18 +66,18 @@ def detect_documents():
                 
             doc_id = doc.get('id') or str(uuid.uuid4())
             doc_type, confidence, signals = classify_document(content, filename)
-            artifacts = extract_artifacts(doc_id, doc_type, content)
+            artifacts = extract_artifacts(doc_id, doc_type, content, filename)
             total_artifacts += len(artifacts)
             
             type_label_map = {
                 "BRD": "Business Requirements",
                 "SRS": "Software Requirements",
                 "FRD": "Functional Specifications",
-                "User Story": "User Stories",
-                "Test Case": "Test Cases",
-                "Change Request": "Change Requests",
-                "Meeting Minutes": "Action Items",
-                "Release Notes": "Release Items"
+                "USER_STORY": "User Stories",
+                "TEST_CASE": "Test Cases",
+                "CHANGE_REQUEST": "Change Requests",
+                "MEETING_MINUTES": "Action Items",
+                "RELEASE_NOTES": "Release Items"
             }
             label = type_label_map.get(doc_type, "Artifacts")
             
@@ -124,18 +124,18 @@ def detect_documents():
         
         doc_id = str(uuid.uuid4())
         doc_type, confidence, signals = classify_document(content, filename)
-        artifacts = extract_artifacts(doc_id, doc_type, content)
+        artifacts = extract_artifacts(doc_id, doc_type, content, filename)
         total_artifacts += len(artifacts)
         
         type_label_map = {
             "BRD": "Business Requirements",
             "SRS": "Software Requirements",
             "FRD": "Functional Specifications",
-            "User Story": "User Stories",
-            "Test Case": "Test Cases",
-            "Change Request": "Change Requests",
-            "Meeting Minutes": "Action Items",
-            "Release Notes": "Release Items"
+            "USER_STORY": "User Stories",
+            "TEST_CASE": "Test Cases",
+            "CHANGE_REQUEST": "Change Requests",
+            "MEETING_MINUTES": "Action Items",
+            "RELEASE_NOTES": "Release Items"
         }
         label = type_label_map.get(doc_type, "Artifacts")
         

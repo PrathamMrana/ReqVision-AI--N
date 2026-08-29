@@ -104,15 +104,23 @@ export default function ProjectTraceabilityDashboard({ result }) {
       "BRD": [],
       "SRS": [],
       "FRD": [],
-      "User Story": [],
-      "Test Case": [],
-      "Change Request": [],
-      "Meeting Minutes": []
+      "USER_STORY": [],
+      "TEST_CASE": [],
+      "CHANGE_REQUEST": [],
+      "MEETING_MINUTES": []
     };
     (graph.nodes || []).forEach(node => {
-      const type = node.document_type || "Other";
+      const type = (node.document_type || "OTHER").toUpperCase().replace(" ", "_");
       if (tiers[type]) {
         tiers[type].push(node);
+      } else if (type === "USER_STORIES" || type === "USER_STORY") {
+        tiers["USER_STORY"].push(node);
+      } else if (type === "TEST_CASES" || type === "TEST_CASE") {
+        tiers["TEST_CASE"].push(node);
+      } else if (type === "CHANGE_REQUESTS" || type === "CHANGE_REQUEST") {
+        tiers["CHANGE_REQUEST"].push(node);
+      } else if (type === "MEETING_MINS" || type === "MOM") {
+        tiers["MEETING_MINUTES"].push(node);
       }
     });
     return tiers;
@@ -487,15 +495,21 @@ export default function ProjectTraceabilityDashboard({ result }) {
 
             {/* Multi-Tier Directed Flow Visualization */}
             <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 overflow-x-auto pb-4">
-              {['BRD', 'SRS', 'FRD', 'User Story', 'Test Case'].map(tierName => (
-                <div key={tierName} className="p-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 flex flex-col gap-2 min-w-[170px]">
+              {[
+                { key: 'BRD', label: 'BRD' },
+                { key: 'SRS', label: 'SRS' },
+                { key: 'FRD', label: 'FRD' },
+                { key: 'USER_STORY', label: 'User Stories' },
+                { key: 'TEST_CASE', label: 'Test Cases' }
+              ].map(tier => (
+                <div key={tier.key} className="p-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 flex flex-col gap-2 min-w-[170px]">
                   <div className="text-[11px] font-mono font-bold text-slate-400 uppercase border-b border-slate-800 pb-1.5 flex items-center justify-between">
-                    <span>{tierName}</span>
-                    <span className="text-[10px] text-slate-500">{(nodesByTier[tierName] || []).length}</span>
+                    <span>{tier.label}</span>
+                    <span className="text-[10px] text-slate-500">{(nodesByTier[tier.key] || []).length}</span>
                   </div>
                   
                   <div className="space-y-2 mt-1">
-                    {(nodesByTier[tierName] || []).map(node => {
+                    {(nodesByTier[tier.key] || []).map(node => {
                       const isSelected = selectedGraphNode?.id === node.id;
                       return (
                         <div
@@ -508,7 +522,7 @@ export default function ProjectTraceabilityDashboard({ result }) {
                           }`}
                         >
                           <div className="font-bold flex items-center justify-between">
-                            <span className={tierName === 'BRD' ? 'text-amber-400' : tierName === 'SRS' ? 'text-blue-400' : tierName === 'FRD' ? 'text-cyan-400' : tierName === 'User Story' ? 'text-purple-400' : 'text-emerald-400'}>
+                            <span className={tier.key === 'BRD' ? 'text-amber-400' : tier.key === 'SRS' ? 'text-blue-400' : tier.key === 'FRD' ? 'text-cyan-400' : tier.key === 'USER_STORY' ? 'text-purple-400' : 'text-emerald-400'}>
                               {node.artifact_id}
                             </span>
                           </div>
