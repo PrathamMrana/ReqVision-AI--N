@@ -6,3 +6,4 @@ numpy
 gunicorn>=22.0.0
 PyPDF2
 python-docx
+sentence-transformers

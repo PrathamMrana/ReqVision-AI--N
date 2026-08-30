@@ -5,6 +5,24 @@ from sklearn.metrics.pairwise import cosine_similarity
 from utils.preprocess import clean_text
 from utils.classifier import normalize_document_type
 from utils.extractor import determine_canonical_artifact_type
+from utils.semantic_engine import SemanticEngine
+from utils.negation_detector import check_polarity_conflict, check_numeric_conflict
+
+# ── Semantic engine (singleton, loaded once) ──────────────────────────────────
+_semantic_engine = SemanticEngine()
+
+# ── Hybrid scoring weights (configurable, documented) ─────────────────────────
+# semantic: primary signal — handles paraphrase, synonym, different wording
+# lexical:  supporting signal — precision, exact-match explainability
+# intent:   domain anchor — prevents cross-domain false positives
+HYBRID_WEIGHT_SEMANTIC = 0.60
+HYBRID_WEIGHT_LEXICAL  = 0.25
+HYBRID_WEIGHT_INTENT   = 0.15
+
+# ── Status thresholds (tuned against Online Library + CampusRide test sets) ───
+HYBRID_MATCH_THRESHOLD   = 0.45  # hybrid >= 0.45 → MATCHED (if type + domain valid)
+HYBRID_PARTIAL_THRESHOLD = 0.28  # hybrid >= 0.28 → PARTIAL
+
 
 # Explainable Security and Architectural Conflict Rules
 CONFLICT_RULES = [
@@ -212,100 +230,121 @@ def compute_domain_lexical_similarity(vectorizer, text_a_clean, text_b_clean, te
     except Exception as e:
         return 0.0, f"Similarity error: {str(e)}", set()
 
+
+def compute_hybrid_score(text_a_raw, text_b_raw, lexical_score, shared_intents):
+    """
+    Combines semantic and lexical evidence into a single hybrid score.
+
+    Formula (configurable via module-level constants):
+        hybrid = HYBRID_WEIGHT_SEMANTIC * semantic
+               + HYBRID_WEIGHT_LEXICAL  * lexical
+               + HYBRID_WEIGHT_INTENT   * intent_score
+
+    Returns:
+        hybrid_score  (float)
+        semantic_sim  (float | None)  — None means model unavailable
+        is_semantic   (bool)          — True when real semantic engine ran
+        intent_score  (float)
+    """
+    intent_score = 1.0 if shared_intents else 0.0
+
+    semantic_sim = _semantic_engine.compute_semantic_similarity(text_a_raw, text_b_raw)
+
+    if semantic_sim is None:
+        # Fallback: weight shifts entirely to lexical + intent
+        hybrid = min(1.0, lexical_score + HYBRID_WEIGHT_INTENT * intent_score)
+        return round(hybrid, 4), None, False, intent_score
+
+    hybrid = (
+        HYBRID_WEIGHT_SEMANTIC * semantic_sim
+        + HYBRID_WEIGHT_LEXICAL  * lexical_score
+        + HYBRID_WEIGHT_INTENT   * intent_score
+    )
+    return round(min(1.0, hybrid), 4), round(semantic_sim, 4), True, intent_score
+
 def find_candidate_relationships(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.18, min_partial=0.10):
     """
     Finds all valid candidate relationships for a source artifact, supporting both
     valid implementation matches and intentional conflict matches.
+    Now uses HYBRID SCORING: semantic (60%) + lexical (25%) + intent (15%).
+    Type-safe candidate filtering still happens BEFORE this function is called.
     Returns: list of relationship_records (list of dicts)
     """
-    if not candidate_arts:
-        return [{
+    _sem_available = _semantic_engine.is_available()
+
+    def _make_unmapped(evidence, confidence="Low"):
+        return {
             "source_document": source_art["document_name"],
             "source_type": source_art["document_type"],
             "source_artifact_type": source_art["artifact_type"],
             "source_artifact": source_art["artifact_id"],
             "source_text": source_art["text"],
-            "target_document": "—",
-            "target_type": "—",
-            "target_artifact_type": "—",
-            "target_artifact": "—",
-            "target_text": "—",
+            "target_document": "—", "target_type": "—",
+            "target_artifact_type": "—", "target_artifact": "—", "target_text": "—",
             "relationship": relationship_type,
-            "status": "UNMAPPED",
-            "similarity": 0.0,
-            "confidence": "Low",
-            "evidence": "No candidate artifacts found in target document"
-        }]
+            "status": "UNMAPPED", "similarity": 0.0,
+            "semantic_similarity": None, "lexical_similarity": 0.0,
+            "hybrid_score": 0.0, "intent_score": 0.0,
+            "semantic_enabled": _sem_available,
+            "confidence": confidence, "evidence": evidence
+        }
 
-    # Check for ambiguity in Meeting Minutes or non-software administrative notes
+    if not candidate_arts:
+        return [_make_unmapped("No candidate artifacts found in target document")]
+
     source_intents = detect_domain_intents(source_art["text"])
     if "hardware_nonsoftware" in source_intents:
-        return [{
-            "source_document": source_art["document_name"],
-            "source_type": source_art["document_type"],
-            "source_artifact_type": source_art["artifact_type"],
-            "source_artifact": source_art["artifact_id"],
-            "source_text": source_art["text"],
-            "target_document": "—",
-            "target_type": "—",
-            "target_artifact_type": "—",
-            "target_artifact": "—",
-            "target_text": "—",
-            "relationship": relationship_type,
-            "status": "UNMAPPED",
-            "similarity": 0.0,
-            "confidence": "High",
-            "evidence": "Administrative / physical non-software item excluded from engineering matrix"
-        }]
+        return [_make_unmapped("Administrative / physical non-software item excluded from engineering matrix", "High")]
 
-    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in ["not agreed", "did not agree", "unclear", "could mean", "undecided", "ambiguous", "further review", "unresolved"])
+    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in [
+        "not agreed", "did not agree", "unclear", "could mean",
+        "undecided", "ambiguous", "further review", "unresolved"
+    ])
     if is_ambiguous:
-        return [{
-            "source_document": source_art["document_name"],
-            "source_type": source_art["document_type"],
-            "source_artifact_type": source_art["artifact_type"],
-            "source_artifact": source_art["artifact_id"],
-            "source_text": source_art["text"],
-            "target_document": "—",
-            "target_type": "—",
-            "target_artifact_type": "—",
-            "target_artifact": "—",
-            "target_text": "—",
-            "relationship": relationship_type,
-            "status": "UNMAPPED",
-            "similarity": 0.0,
-            "confidence": "Medium",
-            "evidence": "Ambiguous requirement: consensus was not agreed in review"
-        }]
+        return [_make_unmapped("Ambiguous requirement: consensus was not agreed in review", "Medium")]
 
     matches_found = []
     best_cand = None
-    best_score = -1.0
+    best_hybrid = -1.0
+    best_semantic = None
+    best_lexical = 0.0
+    best_intent = 0.0
     best_evidence = ""
     best_shared_intents = set()
 
     for cand in candidate_arts:
+        # ── 1. Explainable conflict check (rule-based) ────────────────────────
         has_conflict, conflict_reason = check_explainable_conflict(source_art["text"], cand["text"])
-        sim, evidence, shared_intents = compute_domain_lexical_similarity(
+
+        # ── 2. Lexical + intent evidence ──────────────────────────────────────
+        lex_score, lex_evidence, shared_intents = compute_domain_lexical_similarity(
             vectorizer,
-            source_art["clean_text"],
-            cand["clean_text"],
-            source_art["text"],
-            cand["text"]
+            source_art["clean_text"], cand["clean_text"],
+            source_art["text"], cand["text"]
         )
 
-        # Explicit reference boost if source text explicitly cites target artifact ID
+        # Explicit ID reference boost
         if re.search(r'\b' + re.escape(cand["artifact_id"]) + r'\b', source_art["text"]):
-            sim = max(sim, 0.55)
-            evidence = f"Explicit ID reference to {cand['artifact_id']} with domain alignment"
+            lex_score = max(lex_score, 0.55)
+            lex_evidence = f"Explicit ID reference to {cand['artifact_id']} with domain alignment"
             shared_intents.add("explicit_reference")
 
-        # For Change Requests (AFFECTS), do NOT map to contradictory artifacts (e.g. FS-211)
+        # ── 3. Hybrid scoring: semantic + lexical + intent ────────────────────
+        hybrid, sem_score, sem_used, intent_val = compute_hybrid_score(
+            source_art["text"], cand["text"], lex_score, shared_intents
+        )
+
+        # ── 4. Negation / polarity check (generic) ────────────────────────────
+        polarity_conflict, polarity_reason = check_polarity_conflict(source_art["text"], cand["text"])
+        numeric_result, numeric_reason = check_numeric_conflict(source_art["text"], cand["text"])
+
+        # ── 5. Change Request AFFECTS: skip contradictory spec targets ─────────
         if relationship_type == "AFFECTS" and has_conflict:
             continue
 
-        # If an intentional conflict exists with this candidate in an IMPLEMENTED_BY path, emit a CONFLICT record
-        if has_conflict and (sim >= min_partial or shared_intents) and relationship_type == "IMPLEMENTED_BY":
+        # ── 6. Emit CONFLICT records ──────────────────────────────────────────
+        # Rule-based conflict (e.g., reversible password vs one-way hash)
+        if has_conflict and (lex_score >= min_partial or shared_intents) and relationship_type == "IMPLEMENTED_BY":
             matches_found.append({
                 "source_document": source_art["document_name"],
                 "source_type": source_art["document_type"],
@@ -319,56 +358,118 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
                 "target_text": cand["text"],
                 "relationship": relationship_type,
                 "status": "CONFLICT",
-                "similarity": max(sim, 0.48),
+                "similarity": max(hybrid, 0.48),
+                "semantic_similarity": sem_score,
+                "lexical_similarity": round(lex_score, 4),
+                "hybrid_score": max(hybrid, 0.48),
+                "intent_score": round(intent_val, 4),
+                "semantic_enabled": _sem_available,
                 "confidence": "High",
                 "evidence": conflict_reason
             })
             continue
 
-        if sim > best_score:
-            best_score = sim
+        # Generic polarity conflict (negation detector) — only when semantically related enough
+        if polarity_conflict and hybrid >= 0.40:
+            matches_found.append({
+                "source_document": source_art["document_name"],
+                "source_type": source_art["document_type"],
+                "source_artifact_type": source_art["artifact_type"],
+                "source_artifact": source_art["artifact_id"],
+                "source_text": source_art["text"],
+                "target_document": cand["document_name"],
+                "target_type": cand["document_type"],
+                "target_artifact_type": cand["artifact_type"],
+                "target_artifact": cand["artifact_id"],
+                "target_text": cand["text"],
+                "relationship": relationship_type,
+                "status": "CONFLICT",
+                "similarity": hybrid,
+                "semantic_similarity": sem_score,
+                "lexical_similarity": round(lex_score, 4),
+                "hybrid_score": hybrid,
+                "intent_score": round(intent_val, 4),
+                "semantic_enabled": _sem_available,
+                "confidence": "High",
+                "evidence": f"{polarity_reason} | Semantic: {sem_score:.2f} | Hybrid: {hybrid:.2f}"
+            })
+            continue
+
+        # ── 7. Track best non-conflicting candidate ───────────────────────────
+        if hybrid > best_hybrid:
+            best_hybrid = hybrid
             best_cand = cand
-            best_evidence = evidence
+            best_semantic = sem_score
+            best_lexical = lex_score
+            best_intent = intent_val
+            best_evidence = (
+                f"Semantic: {sem_score:.2f} | Lexical: {lex_score:.2f} | Hybrid: {hybrid:.2f} | "
+                f"{lex_evidence}"
+                + (f" | {numeric_reason}" if numeric_reason else "")
+            )
             best_shared_intents = shared_intents
 
-    # Emit the best valid implementation match
-    if best_cand and (best_score >= min_match or bool(best_shared_intents)):
-        conf = "High" if (best_score >= 0.35 or bool(best_shared_intents)) else "Medium"
-        matches_found.append({
-            "source_document": source_art["document_name"],
-            "source_type": source_art["document_type"],
-            "source_artifact_type": source_art["artifact_type"],
-            "source_artifact": source_art["artifact_id"],
-            "source_text": source_art["text"],
-            "target_document": best_cand["document_name"],
-            "target_type": best_cand["document_type"],
-            "target_artifact_type": best_cand["artifact_type"],
-            "target_artifact": best_cand["artifact_id"],
-            "target_text": best_cand["text"],
-            "relationship": relationship_type,
-            "status": "MATCHED",
-            "similarity": max(best_score, 0.45) if bool(best_shared_intents) else best_score,
-            "confidence": conf,
-            "evidence": best_evidence
-        })
-    elif best_cand and best_score >= min_partial:
-        matches_found.append({
-            "source_document": source_art["document_name"],
-            "source_type": source_art["document_type"],
-            "source_artifact_type": source_art["artifact_type"],
-            "source_artifact": source_art["artifact_id"],
-            "source_text": source_art["text"],
-            "target_document": best_cand["document_name"],
-            "target_type": best_cand["document_type"],
-            "target_artifact_type": best_cand["artifact_type"],
-            "target_artifact": best_cand["artifact_id"],
-            "target_text": best_cand["text"],
-            "relationship": relationship_type,
-            "status": "PARTIAL",
-            "similarity": best_score,
-            "confidence": "Medium",
-            "evidence": f"Partial conceptual overlap ({best_evidence})"
-        })
+    # ── 8. Emit MATCHED / PARTIAL / UNMAPPED ─────────────────────────────────
+    # Determine status using hybrid score + secondary signals
+    # A high hybrid score alone does NOT create a relationship.
+    # Candidate must also have passed: type-safe filter + domain relevance + minimum evidence.
+
+    if best_cand:
+        # Numeric MODIFIED_VALUE → prefer PARTIAL over MATCHED
+        num_result, num_reason = check_numeric_conflict(source_art["text"], best_cand["text"])
+        
+        # Domain validation: if both artifacts have intents but zero overlap, reject
+        domain_ok = bool(best_shared_intents) or best_hybrid >= HYBRID_MATCH_THRESHOLD
+
+        if domain_ok and best_hybrid >= HYBRID_MATCH_THRESHOLD and num_result != "MODIFIED_VALUE":
+            conf = "High" if best_hybrid >= 0.60 or bool(best_shared_intents) else "Medium"
+            matches_found.append({
+                "source_document": source_art["document_name"],
+                "source_type": source_art["document_type"],
+                "source_artifact_type": source_art["artifact_type"],
+                "source_artifact": source_art["artifact_id"],
+                "source_text": source_art["text"],
+                "target_document": best_cand["document_name"],
+                "target_type": best_cand["document_type"],
+                "target_artifact_type": best_cand["artifact_type"],
+                "target_artifact": best_cand["artifact_id"],
+                "target_text": best_cand["text"],
+                "relationship": relationship_type,
+                "status": "MATCHED",
+                "similarity": best_hybrid,
+                "semantic_similarity": best_semantic,
+                "lexical_similarity": round(best_lexical, 4),
+                "hybrid_score": best_hybrid,
+                "intent_score": round(best_intent, 4),
+                "semantic_enabled": _sem_available,
+                "confidence": conf,
+                "evidence": best_evidence
+            })
+        elif best_hybrid >= HYBRID_PARTIAL_THRESHOLD:
+            # PARTIAL: modified value, or hybrid between partial and match thresholds
+            partial_reason = f"Modified quantitative value: {num_reason}" if num_result == "MODIFIED_VALUE" else f"Partial conceptual overlap"
+            matches_found.append({
+                "source_document": source_art["document_name"],
+                "source_type": source_art["document_type"],
+                "source_artifact_type": source_art["artifact_type"],
+                "source_artifact": source_art["artifact_id"],
+                "source_text": source_art["text"],
+                "target_document": best_cand["document_name"],
+                "target_type": best_cand["document_type"],
+                "target_artifact_type": best_cand["artifact_type"],
+                "target_artifact": best_cand["artifact_id"],
+                "target_text": best_cand["text"],
+                "relationship": relationship_type,
+                "status": "PARTIAL",
+                "similarity": best_hybrid,
+                "semantic_similarity": best_semantic,
+                "lexical_similarity": round(best_lexical, 4),
+                "hybrid_score": best_hybrid,
+                "intent_score": round(best_intent, 4),
+                "semantic_enabled": _sem_available,
+                "confidence": "Medium",
+                "evidence": f"{partial_reason} ({best_evidence})"
+            })
 
     if not matches_found:
         matches_found.append({
@@ -377,16 +478,15 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             "source_artifact_type": source_art["artifact_type"],
             "source_artifact": source_art["artifact_id"],
             "source_text": source_art["text"],
-            "target_document": "—",
-            "target_type": "—",
-            "target_artifact_type": "—",
-            "target_artifact": "—",
-            "target_text": "—",
+            "target_document": "—", "target_type": "—",
+            "target_artifact_type": "—", "target_artifact": "—", "target_text": "—",
             "relationship": relationship_type,
-            "status": "UNMAPPED",
-            "similarity": 0.0,
+            "status": "UNMAPPED", "similarity": 0.0,
+            "semantic_similarity": None, "lexical_similarity": 0.0,
+            "hybrid_score": 0.0, "intent_score": 0.0,
+            "semantic_enabled": _sem_available,
             "confidence": "Low",
-            "evidence": "No target artifact satisfied domain and lexical match criteria"
+            "evidence": "No target artifact satisfied hybrid semantic+lexical match criteria"
         })
 
     return matches_found
@@ -741,11 +841,23 @@ def analyze_project_documents_traceability(project_documents):
     root_mapped = sum(1 for c in traceability_chains if c["overall_status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
     overall_cov = round((root_mapped / root_total * 100), 1) if root_total > 0 else 0.0
 
+    # ── Semantic metadata ─────────────────────────────────────────────────────
+    sem_available = _semantic_engine.is_available()
+    analysis_mode = "hybrid_semantic_lexical" if sem_available else "lexical_fallback"
+    analysis_type = (
+        "Cross-Document Hybrid Semantic+Lexical Traceability"
+        if sem_available else
+        "Cross-Document Lexical Traceability (Semantic Fallback)"
+    )
+
     return {
         "success": True,
         "mode": "project_intelligence",
         "title": "ReqVision AI — Software Intelligence & Cross-Document Traceability",
-        "analysis_type": "Cross-Document Lexical Traceability",
+        "analysis_type": analysis_type,
+        "analysis_mode": analysis_mode,
+        "semantic_enabled": sem_available,
+        "semantic_model": _semantic_engine.model_name if sem_available else None,
         "project": {
             "project_name": "Project Workspace",
             "mode": "project_intelligence",

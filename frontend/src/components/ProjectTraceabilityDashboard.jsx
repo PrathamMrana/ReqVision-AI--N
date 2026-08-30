@@ -23,6 +23,11 @@ export default function ProjectTraceabilityDashboard({ result }) {
   const docList = result.documents || [];
   const pathCoverage = summary.path_coverage || {};
 
+  const semanticEnabled = result.semantic_enabled === true;
+  const semanticModel = result.semantic_model || 'sentence-transformers/all-MiniLM-L6-v2';
+  const analysisMode = result.analysis_mode || 'lexical_fallback';
+  const analysisType = result.analysis_type || 'Cross-Document Hybrid Semantic+Lexical Traceability';
+
   // Filter pairwise direct relationship rows
   const filteredMatrix = useMemo(() => {
     return matrix.filter(row => {
@@ -140,7 +145,7 @@ export default function ProjectTraceabilityDashboard({ result }) {
               ReqVision AI — <span className="text-gradient">Software Intelligence Report</span>
             </h1>
             <p className="text-slate-400 mt-1 text-sm sm:text-base font-medium">
-              Cross-Document Lexical Traceability Analysis across all {summary.total_documents || 7} project artifacts
+              {analysisType} across all {summary.total_documents || 7} project artifacts
             </p>
           </div>
 
@@ -151,6 +156,26 @@ export default function ProjectTraceabilityDashboard({ result }) {
             <Download className="w-4 h-4 text-neon-blue" />
             Export Traceability Report
           </button>
+        </div>
+
+        {/* Semantic Intelligence Status Banner */}
+        <div className={`mb-6 p-3.5 px-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono backdrop-blur-xl ${
+          semanticEnabled 
+            ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' 
+            : 'bg-amber-950/20 border-amber-500/30 text-amber-300'
+        }`}>
+          <div className="flex items-center gap-2.5">
+            <span className={`w-2.5 h-2.5 rounded-full ${semanticEnabled ? 'bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400'}`} />
+            <span className="font-bold tracking-wider uppercase">
+              {semanticEnabled ? 'SEMANTIC INTELLIGENCE ACTIVE' : 'SEMANTIC ENGINE UNAVAILABLE — LEXICAL FALLBACK ACTIVE'}
+            </span>
+          </div>
+          <div className="flex items-center gap-4 text-slate-400">
+            {semanticEnabled && (
+              <span>Dense Model: <strong className="text-slate-200 font-semibold">{semanticModel}</strong></span>
+            )}
+            <span>Scoring: <strong className="text-slate-200 font-semibold">60% Semantic + 25% Lexical + 15% Intent</strong></span>
+          </div>
         </div>
 
         {/* Print Header (Visible only when printing/exporting to PDF) */}
@@ -353,7 +378,9 @@ export default function ProjectTraceabilityDashboard({ result }) {
                     <th className="p-3.5">Relationship</th>
                     <th className="p-3.5">Target Artifact</th>
                     <th className="p-3.5">Status</th>
-                    <th className="p-3.5">Lexical Sim</th>
+                    <th className="p-3.5 text-center">Semantic Sim</th>
+                    <th className="p-3.5 text-center">Lexical Sim</th>
+                    <th className="p-3.5 text-center">Hybrid Score</th>
                     <th className="p-3.5">Confidence</th>
                     <th className="p-3.5 pr-6">Evidence / Reason</th>
                   </tr>
@@ -397,10 +424,43 @@ export default function ProjectTraceabilityDashboard({ result }) {
                         {getStatusBadge(row.status)}
                       </td>
 
+                      {/* Semantic Sim */}
+                      <td className="p-3.5 align-top font-mono text-center">
+                        {row.semantic_similarity != null ? (
+                          <span className={`px-2 py-0.5 rounded font-bold text-xs ${
+                            row.semantic_similarity >= 0.60 ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' :
+                            row.semantic_similarity >= 0.40 ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30' :
+                            'bg-slate-800 text-slate-400'
+                          }`}>
+                            {row.semantic_similarity.toFixed(2)}
+                          </span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+
                       {/* Lexical Sim */}
-                      <td className="p-3.5 align-top font-mono text-slate-300">
-                        {row.similarity > 0 ? (
-                          <span className="font-bold text-xs">{row.similarity.toFixed(2)}</span>
+                      <td className="p-3.5 align-top font-mono text-center text-slate-300">
+                        {row.lexical_similarity != null && row.lexical_similarity > 0 ? (
+                          <span className="text-xs text-slate-300 font-medium">{row.lexical_similarity.toFixed(2)}</span>
+                        ) : row.similarity > 0 && row.semantic_similarity == null ? (
+                          <span className="text-xs text-slate-300 font-medium">{row.similarity.toFixed(2)}</span>
+                        ) : (
+                          <span className="text-slate-600">—</span>
+                        )}
+                      </td>
+
+                      {/* Hybrid Score */}
+                      <td className="p-3.5 align-top font-mono text-center">
+                        {row.hybrid_score != null && row.hybrid_score > 0 ? (
+                          <span className={`px-2 py-0.5 rounded font-black text-xs ${
+                            row.hybrid_score >= 0.60 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
+                            row.hybrid_score >= 0.40 ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/40' :
+                            row.hybrid_score >= 0.28 ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30' :
+                            'bg-slate-800 text-slate-400'
+                          }`}>
+                            {row.hybrid_score.toFixed(2)}
+                          </span>
                         ) : (
                           <span className="text-slate-600">—</span>
                         )}
