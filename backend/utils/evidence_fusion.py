@@ -254,15 +254,19 @@ def evaluate_candidate_relevance_gate(
     src_low = source_text.lower()
     tgt_low = target_text.lower()
 
-    # 1. Check for administrative / hardware non-software exclusions
-    hardware_terms = [
-        "projector", "screen", "monitor", "whiteboard", "chair", "desk", "furniture",
+    # 1. Check for administrative / physical hardware procurement without software realization
+    hardware_procurement_actions = ["procure", "purchase", "install in", "replace physical", "order 30", "order 25", "buy", "physical replacement"]
+    hardware_physical_objects = [
+        "projector", "screen", "whiteboard", "chair", "desk", "furniture",
         "charger", "charging station", "espresso", "coffee", "shoe cleaner", "air purifier",
-        "air conditioner", "hvac", "printer", "shredder", "vending machine", "microwave",
-        "refrigerator", "cooler", "cable", "door lock", "umbrella", "knife", "breakroom", "parking lot"
+        "air conditioner", "hvac", "vending machine", "microwave", "refrigerator", "cooler",
+        "breakroom", "parking lot", "standing desk"
     ]
-    if any(phrase in src_low for phrase in hardware_terms):
-        return False, "Administrative / non-software physical item excluded from relevance gate"
+    is_physical_procurement = any(obj in src_low for obj in hardware_physical_objects) and (
+        any(act in src_low for act in hardware_procurement_actions) or not any(sw in src_low for sw in ["software", "api", "app", "service", "module", "endpoint", "driver", "calibrate", "calibration", "protocol", "portal", "command", "telemetry"])
+    )
+    if is_physical_procurement:
+        return False, "Administrative / physical hardware procurement excluded from software traceability"
 
     # 2. Check for unresolved review statements
     unresolved_terms = [

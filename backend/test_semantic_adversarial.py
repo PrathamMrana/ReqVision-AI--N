@@ -332,10 +332,30 @@ def run_all_25_adversarial_tests():
     passed &= check("Financial settlement distractor rejected", not is_d2)
     all_passed &= passed
 
+    # ── CASE 26: DEFENSIVE VALIDATION (REJECT VS BLOCK) ──────────────────────
+    print(f"\n{MINI}\nCASE 26 — Defensive Security Validation (Reject vs Block)")
+    src = "The system shall reject invalid payment requests."
+    tgt = "Verify that invalid payment requests are blocked by the gateway."
+    sim = engine.compute_semantic_similarity(src, tgt)
+    pol, _ = check_polarity_conflict(src, tgt)
+    is_rel, _ = evaluate_candidate_relevance_gate(src, tgt, sim, 0.40, set())
+    passed = check("Defensive validation passes Relevance Gate", is_rel)
+    passed &= check("Reject vs Block on invalid input is NOT marked as CONFLICT", not pol)
+    all_passed &= passed
+
+    # ── CASE 27: SOFTWARE DEVICE CONTROL VS HARDWARE PROCUREMENT ─────────────
+    print(f"\n{MINI}\nCASE 27 — Software Device Control (Calibrate Projector via App)")
+    src_sw = "The admin portal shall support digital projector calibration through the management application."
+    tgt_sw = "Implement REST API POST /api/devices/projector/calibrate to adjust optical focus."
+    sim_sw = engine.compute_semantic_similarity(src_sw, tgt_sw)
+    is_rel_sw, _ = evaluate_candidate_relevance_gate(src_sw, tgt_sw, sim_sw, 0.40, set())
+    passed = check("Software-controlled device feature passes Relevance Gate", is_rel_sw)
+    all_passed &= passed
+
     # ── FINAL SUMMARY ────────────────────────────────────────────────────────
     print(f"\n{SEP}")
     if all_passed:
-        print("🎉 ALL 25 ADVERSARIAL CASES PASSED")
+        print("🎉 ALL ADVERSARIAL CASES PASSED")
     else:
         print("❌ SOME ADVERSARIAL CASES FAILED — review output above")
     print(SEP)

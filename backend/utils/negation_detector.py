@@ -146,12 +146,24 @@ def extract_numeric_constraints(text: str) -> List[Dict]:
     return constraints
 
 
+def is_defensive_validation(text: str) -> bool:
+    """Returns True if the text describes validation/blocking of invalid/unauthorized/duplicate inputs."""
+    t = text.lower()
+    return bool(re.search(r'\b(?:reject|block|prevent|deny|filter|flag)\w*\s+.*?\b(?:invalid|unauthorized|duplicate|expired|malformed|corrupted|tampered|unauthenticated|un-?approved|illegal)\b|\b(?:invalid|unauthorized|duplicate|expired|malformed|corrupted|tampered|unauthenticated)\s+.*?\b(?:reject|block|prevent|deny|filter|flag)\w*\b', t))
+
+
 def check_polarity_conflict(text_a: str, text_b: str) -> Tuple[bool, str]:
     """
-    Returns (True, reason) if text_a and text_b have conflicting polarity on the same concept.
+    Checks if two texts describe contradictory policies or polarities.
+    Returns (True, reason) if polarity conflict is detected, else (False, '').
     """
     ta = text_a.lower()
     tb = text_b.lower()
+
+    # Defensive security validation (e.g. reject invalid vs block invalid, or prevent duplicate vs block duplicate)
+    # is a normal security capability, not a contradiction
+    if is_defensive_validation(ta) and is_defensive_validation(tb):
+        return False, ""
 
     # 1. Check explicit mutual exclusion pairs
     for pattern_a, pattern_b, reason in EXCLUSIVE_PAIRS:
