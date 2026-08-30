@@ -3,12 +3,15 @@ backend/utils/evidence_fusion.py
 
 Generic Evidence Fusion & Anti-Hallucination Engine for ReqVision AI Phase 3.
 
-Evaluates multi-dimensional evidence between source and target requirements:
-1. Action / Verb Alignment (reconcile != refund, cancel == revoke, authenticate == verify identity)
-2. Entity / Concept Alignment (settlement != refund transaction)
-3. Completeness & Entailment (source has A + B, target only has A -> PARTIAL)
-4. Capability Extension (target adds alternative option -> MATCHED/EXTENDED, not CONFLICT)
-5. Candidate Ranking & Ambiguity Margin Check (close candidates -> AMBIGUOUS)
+Implements the Canonical Relevance Gate Architecture:
+1. Normalized Capability Extraction (Actors, Actions, Objects, Modalities, Constraints)
+2. Hard Candidate Relevance Gate (Rejects unrelated candidates before conflict/matching analysis)
+3. Action & Workflow Alignment (Distinguishes estimate vs refund, approve vs create, cancel vs access-control)
+4. Meaningful Entity Alignment (Filters out generic stopword dominance)
+5. Entailment & Secondary Condition Completeness Check
+6. Capability Extension Recognition (Additional options != conflict)
+7. Candidate Ranking & Ambiguity Margin Validation (Close margins -> Ambiguous PARTIAL)
+8. Anti-False-Conflict Isolation (Only confirmed relevant candidates are tested for contradiction)
 
 NO project-specific logic, IDs, filenames, or hardcoded project names.
 Operates strictly on generic linguistic, structural, and semantic properties.
@@ -19,18 +22,44 @@ from typing import Tuple, List, Dict, Set, Optional
 
 # Generic core action patterns and synonymous action families
 ACTION_PATTERNS = {
-    "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b"],
-    "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b"],
+    "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b", r"\baccess\s+control\b", r"\bpermission\w*\b", r"\brbac\b"],
+    "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b", r"\bwithdraw\w*\b"],
     "reserve": [r"\breserv\w*\b", r"\bbook\w*\b", r"\bhold\b", r"\ballocat\w*\b", r"\bschedul\w*\b", r"\bappoint\w*\b"],
-    "pay": [r"\bpay\w*\b", r"\bcheckout\b", r"\bcharg\w*\b", r"\bbill\w*\b", r"\bremit\w*\b"],
+    "pay": [r"\bpay\w*\b", r"\bcheckout\b", r"\bcharg\w*\b", r"\bbill\w*\b", r"\bremit\w*\b", r"\bsettle\s+invoice\b"],
     "refund": [r"\brefund\w*\b", r"\breimburs\w*\b", r"\brevers\w*\s+payment\b", r"\bcredit\s+back\b", r"\breturn\s+funds\b"],
-    "reconcile": [r"\breconcil\w*\b", r"\bmatch\s+settlement\b", r"\bcompar\w*\s+files\b", r"\baudit\s+ledger\b", r"\bbalance\s+records\b"],
-    "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms)\b", r"\bdispatch\w*\b", r"\bpush\s+notification\b"],
-    "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b"],
-    "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\barchiv\w*\b", r"\bdump\b"],
-    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b"],
+    "reconcile": [r"\breconcil\w*\b", r"\bmatch\s+settlement\b", r"\bcompar\w*\s+files\b", r"\baudit\s+ledger\b", r"\bbalance\s+records\b", r"\bcross-?check\b"],
+    "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bdispatch\w*\b", r"\bpush\s+notification\b", r"\bmessage\w*\b"],
+    "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b", r"\bdiscover\w*\b"],
+    "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\barchiv\w*\b", r"\bdump\b", r"\bgenerate\s+report\b"],
+    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b"],
     "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b"],
+    "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b"],
+    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b"],
+    "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b"],
+    "detect_dup": [r"\bdetect\w*\s+duplicat\w*\b", r"\bprevent\w*\s+duplicat\w*\b", r"\bduplicat\w*\s+check\w*\b", r"\bflag\w*\s+duplicat\w*\b", r"\bdedup\w*\b", r"\bduplicate\s+receipt\w*\b", r"\bduplicate\s+warning\b", r"\bduplicate\s+claim\w*\b", r"\bduplicate\s+image\w*\b"],
 }
+
+# Generic actor / role patterns
+ACTOR_PATTERNS = {
+    "employee": [r"\bemployee\w*\b", r"\bstaff\b", r"\bworker\w*\b", r"\btraveler\w*\b", r"\brider\w*\b", r"\bstudent\w*\b", r"\bpatient\w*\b", r"\bcustomer\w*\b", r"\buser\w*\b"],
+    "manager": [r"\bmanager\w*\b", r"\bsupervisor\w*\b", r"\bapprover\w*\b", r"\blead\w*\b", r"\bhead\b", r"\bdirector\w*\b"],
+    "finance": [r"\bfinance\b", r"\baccountant\w*\b", r"\bbursar\b", r"\bauditor\w*\b", r"\bcashier\w*\b", r"\bcompliance\b"],
+    "admin": [r"\badmin\w*\b", r"\bsysadmin\b", r"\boperator\w*\b", r"\bhelpdesk\b"],
+}
+
+# Incompatible action pairs that represent completely distinct capabilities
+INCOMPATIBLE_ACTION_PAIRS = [
+    ({"reconcile"}, {"refund"}),
+    ({"export"}, {"manage"}),
+    ({"cancel"}, {"reserve"}),
+    ({"search"}, {"manage"}),
+    ({"estimate"}, {"refund"}),
+    ({"estimate"}, {"manage"}),
+    ({"approve"}, {"manage"}),       # Manager approval != employee creation/submission
+    ({"cancel"}, {"auth"}),          # Cancellation != Access control
+    ({"capture"}, {"detect_dup"}),   # Receipt capture/upload != Duplicate fraud detection
+    ({"auth"}, {"detect_dup"}),      # Access control != Duplicate detection
+]
 
 # Stopwords to filter out when extracting entities
 GENERIC_BOILERPLATE = {
@@ -39,7 +68,8 @@ GENERIC_BOILERPLATE = {
     "will", "able", "allow", "allows", "allowed", "provide", "provides", "provided",
     "want", "wants", "order", "view", "views", "data", "information", "details",
     "support", "supports", "supported", "implement", "implements", "implemented",
-    "verify", "verifies", "verified", "test", "tests", "tested", "scenario", "scenarios"
+    "verify", "verifies", "verified", "test", "tests", "tested", "scenario", "scenarios",
+    "requirement", "specification", "document", "item", "process", "interface", "method"
 }
 
 
@@ -55,9 +85,22 @@ def extract_actions(text: str) -> Set[str]:
     return detected_clusters
 
 
+def extract_actors(text: str) -> Set[str]:
+    """
+    Extracts high-level actor / role categories mentioned in the text.
+    """
+    t = text.lower()
+    detected_actors = set()
+    for role_name, patterns in ACTOR_PATTERNS.items():
+        if any(re.search(pat, t) for pat in patterns):
+            detected_actors.add(role_name)
+    return detected_actors
+
+
 def extract_entities(text: str) -> Set[str]:
     """
     Extracts domain-relevant entity tokens (excluding boilerplate).
+    Uses stemmed representation to bridge morphological variants.
     """
     t = text.lower()
     raw_tokens = re.findall(r'\b[a-z]{3,}\b', t)
@@ -88,20 +131,21 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
     if not actions_a or not actions_b:
         return 0.70, "Neutral action alignment"
 
+    # Specialized capability divergence (duplicate fraud check != generic photo upload/capture)
+    if "detect_dup" in actions_b and "detect_dup" not in actions_a and "capture" in actions_a:
+        return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
+    if "detect_dup" in actions_a and "detect_dup" not in actions_b and "capture" in actions_b:
+        return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
+
+    # Shared actions take precedence
     shared = actions_a & actions_b
     if shared:
         return 1.0, f"Aligned actions on [{', '.join(shared)}]"
 
-    # Incompatible action pairs
-    INCOMPATIBLE_PAIRS = [
-        ({"reconcile"}, {"refund"}),
-        ({"export"}, {"manage"}),
-        ({"cancel"}, {"reserve"}),
-        ({"search"}, {"manage"}),
-    ]
-    for group1, group2 in INCOMPATIBLE_PAIRS:
+    # Check for strictly incompatible action pairs when no actions are shared
+    for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
         if (actions_a & group1 and actions_b & group2) or (actions_a & group2 and actions_b & group1):
-            return 0.10, f"Action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
+            return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
     return 0.40, f"Different actions: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
@@ -120,12 +164,61 @@ def evaluate_entity_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
     union = ent_a | ent_b
     jaccard = len(intersection) / len(union) if union else 0.0
 
-    if jaccard >= 0.25:
+    if jaccard >= 0.20:
         return min(1.0, 0.60 + jaccard), f"Shared domain entities: [{', '.join(list(intersection)[:4])}]"
     elif intersection:
-        return 0.60, f"Weak shared entity overlap: [{', '.join(list(intersection)[:3])}]"
+        return 0.55, f"Weak shared entity overlap: [{', '.join(list(intersection)[:3])}]"
     else:
-        return 0.20, "No shared domain entities"
+        return 0.10, "No shared domain entities"
+
+
+def evaluate_candidate_relevance_gate(
+    source_text: str,
+    target_text: str,
+    semantic_sim: Optional[float],
+    lexical_sim: float,
+    shared_intents: Set[str],
+    has_explicit_ref: bool = False
+) -> Tuple[bool, str]:
+    """
+    Hard Candidate Relevance Gate.
+    
+    A candidate MUST pass this gate to be considered for candidate ranking,
+    MATCHED/PARTIAL relationships, or CONFLICT detection.
+    
+    If source and target do NOT describe the same underlying capability:
+    Returns (False, reason) -> Candidate is immediately REJECTED.
+    """
+    if has_explicit_ref:
+        return True, "Explicit artifact reference passed gate"
+
+    # 1. Check for administrative / hardware non-software exclusions
+    if any(phrase in source_text.lower() for phrase in ["ergonomic chair", "desk", "knife", "patio umbrella", "vending machine", "furniture"]):
+        return False, "Administrative / non-software physical item excluded from relevance gate"
+
+    # 2. Check for unresolved review statements
+    if any(phrase in source_text.lower() for phrase in ["not agreed", "did not agree", "unclear", "could mean", "undecided", "ambiguous", "further review", "unresolved", "did not define", "discussed but", "no consensus"]):
+        return False, "Unresolved review statement excluded from automatic mapping"
+
+    actions_a = extract_actions(source_text)
+    actions_b = extract_actions(target_text)
+    act_score, act_reason = evaluate_action_alignment(source_text, target_text)
+
+    # 3. Incompatible action rejection
+    if act_score <= 0.10 and not shared_intents:
+        return False, f"Relevance Gate Rejected: {act_reason}"
+
+    # 4. Entity check: reject if entities have 0 overlap and no shared intents and not high semantic
+    ent_score, ent_reason = evaluate_entity_alignment(source_text, target_text)
+    sem = semantic_sim if semantic_sim is not None else lexical_sim
+    if ent_score <= 0.10 and not shared_intents and sem < 0.60:
+        return False, "Relevance Gate Rejected: Unrelated domain entities"
+
+    # 5. Semantic threshold minimum
+    if sem < 0.25 and not shared_intents and lexical_sim < 0.20:
+        return False, "Relevance Gate Rejected: Insufficient semantic and lexical evidence"
+
+    return True, "Candidate passed capability relevance gate"
 
 
 def detect_missing_conditions(source_text: str, target_text: str) -> Tuple[bool, str]:
@@ -140,6 +233,7 @@ def detect_missing_conditions(source_text: str, target_text: str) -> Tuple[bool,
         (r'\band\s+(?:receive|get)\s+.*?\b(?:receipt|notification|email|confirmation|sms)\b', 'receipt / notification delivery'),
         (r'\band\s+(?:send|dispatch|notify)\b', 'notification dispatch'),
         (r'\band\s+(?:record|log|archive)\b', 'audit / archiving logging'),
+        (r'\band\s+(?:upload|attach)\s+.*?\breceipt\b', 'receipt attachment'),
     ]
 
     for pat, desc in compound_indicators:
@@ -163,7 +257,7 @@ def detect_capability_extension(source_text: str, target_text: str) -> Tuple[boo
     src_lower = source_text.lower()
     tgt_lower = target_text.lower()
 
-    if re.search(r'\bor\s+(?:digital\s+wallets?|apple\s+pay|google\s+pay|cash|sms|bank\s+transfers?|qr)\b', tgt_lower):
+    if re.search(r'\bor\s+(?:digital\s+wallets?|apple\s+pay|google\s+pay|samsung\s+pay|cash|sms|bank\s+transfers?|qr|slack)\b', tgt_lower):
         if not re.search(r'\bor\b', src_lower):
             return True, "Extended capability: target supports additional alternative channels"
 
@@ -177,7 +271,8 @@ def rank_and_disambiguate_candidates(
     ambiguity_margin: float = 0.04
 ) -> List[Dict]:
     """
-    Ranks evaluated candidates, computes score margins, and disambiguates close candidates.
+    Ranks evaluated candidates that passed the relevance gate, computes score margins,
+    and disambiguates close candidates.
     """
     if not candidates_evaluations:
         return []

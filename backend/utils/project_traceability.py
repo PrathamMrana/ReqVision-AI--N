@@ -10,6 +10,7 @@ from utils.negation_detector import check_polarity_conflict, check_numeric_confl
 from utils.evidence_fusion import (
     evaluate_action_alignment,
     evaluate_entity_alignment,
+    evaluate_candidate_relevance_gate,
     detect_missing_conditions,
     detect_capability_extension,
     rank_and_disambiguate_candidates
@@ -321,26 +322,32 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
     evaluated_candidates = []
 
     for cand in candidate_arts:
-        # ── 1. Explainable conflict check (rule-based) ────────────────────────
-        has_conflict, conflict_reason = check_explainable_conflict(source_art["text"], cand["text"])
-
-        # ── 2. Lexical + intent evidence ──────────────────────────────────────
+        # ── 1. Lexical + intent evidence ──────────────────────────────────────
         lex_score, lex_evidence, shared_intents = compute_domain_lexical_similarity(
             vectorizer,
             source_art["clean_text"], cand["clean_text"],
             source_art["text"], cand["text"]
         )
 
-        # Explicit ID reference boost
-        if re.search(r'\b' + re.escape(cand["artifact_id"]) + r'\b', source_art["text"]):
+        # Explicit ID reference check
+        has_id_ref = bool(re.search(r'\b' + re.escape(cand["artifact_id"]) + r'\b', source_art["text"]))
+        if has_id_ref:
             lex_score = max(lex_score, 0.55)
             lex_evidence = f"Explicit ID reference to {cand['artifact_id']} with domain alignment"
             shared_intents.add("explicit_reference")
 
-        # ── 3. Hybrid scoring: semantic + lexical + intent ────────────────────
+        # ── 2. Hybrid scoring: semantic + lexical + intent ────────────────────
         hybrid, sem_score, sem_used, intent_val = compute_hybrid_score(
             source_art["text"], cand["text"], lex_score, shared_intents
         )
+
+        # ── 3. Hard Candidate Relevance Gate ──────────────────────────────────
+        is_relevant, relevance_reason = evaluate_candidate_relevance_gate(
+            source_art["text"], cand["text"], sem_score, lex_score, shared_intents, has_explicit_ref=has_id_ref
+        )
+        if not is_relevant:
+            # REJECT candidate immediately — do NOT process for conflict, do NOT add to evaluated candidates
+            continue
 
         # ── 4. Action & Entity Alignment (Anti-Hallucination) ─────────────────
         action_score, action_reason = evaluate_action_alignment(source_art["text"], cand["text"])
@@ -353,10 +360,11 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         numeric_result, numeric_reason = check_numeric_conflict(source_art["text"], cand["text"])
 
         # ── 6. Change Request AFFECTS: skip contradictory spec targets ─────────
+        has_conflict, conflict_reason = check_explainable_conflict(source_art["text"], cand["text"])
         if relationship_type == "AFFECTS" and (has_conflict or polarity_conflict):
             continue
 
-        # ── 7. Emit CONFLICT records ──────────────────────────────────────────
+        # ── 7. Emit CONFLICT records (ONLY for confirmed relevant candidates) ─
         # Rule-based conflict (e.g., reversible password vs one-way hash)
         if has_conflict and (lex_score >= min_partial or shared_intents or (sem_score and sem_score >= 0.40)) and relationship_type == "IMPLEMENTED_BY":
             matches_found.append({

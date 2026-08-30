@@ -27,6 +27,7 @@ DOMAINS = [
     ("Hospital PMS", os.path.join(os.path.dirname(__file__), "tests", "health_docs")),
     ("EduPay", os.path.join(os.path.dirname(__file__), "tests", "edupay_docs")),
     ("FoodFlow (5th Domain)", os.path.join(os.path.dirname(__file__), "tests", "foodflow_docs")),
+    ("TravelOps (6th Domain)", os.path.join(os.path.dirname(__file__), "tests", "travelops_docs")),
 ]
 
 SEP = "=" * 75

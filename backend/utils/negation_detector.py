@@ -56,6 +56,7 @@ PERMISSION_PATTERNS = [
 EXCLUSIVE_PAIRS = [
     (r'\bwithout\s+(?:logging|login|auth)\b|\bguest\s+checkout\s+allowed\b', r'\bprohibit\w*\b|\bno\s+guest\b', 'Guest access allowed vs prohibited'),
     (r'\bpassword(?:\s+only)?\b', r'\bmfa\b|\b2fa\b|\bmulti.factor\b', 'Password-only vs MFA requirement'),
+    (r'\breversible\s+(?:des\s+|caesar\s+)?(?:encrypt\w*|storage|password)\b', r'\bsalted\s+(?:pbkdf2|bcrypt|argon2id|hash)\b|\breversible\s+.*?\b(?:prohibited|forbidden)\b|\bone-way\s+hash\b', 'Reversible credential encryption vs Salted one-way cryptographic hashing'),
     (r'\bencrypt(?:ed|ion)?\b', r'\bunencrypt(?:ed|ion)?\b|\bno\s+encrypt\b|\bplaintext\b|\bcleartext\b', 'Encrypted vs unencrypted / plaintext'),
     (r'\brequired\b|\bmandatory\b', r'\boptional\b|\bvoluntary\b', 'Required/Mandatory vs Optional'),
 ]
