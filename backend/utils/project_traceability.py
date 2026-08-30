@@ -7,6 +7,13 @@ from utils.classifier import normalize_document_type
 from utils.extractor import determine_canonical_artifact_type
 from utils.semantic_engine import SemanticEngine
 from utils.negation_detector import check_polarity_conflict, check_numeric_conflict
+from utils.evidence_fusion import (
+    evaluate_action_alignment,
+    evaluate_entity_alignment,
+    detect_missing_conditions,
+    detect_capability_extension,
+    rank_and_disambiguate_candidates
+)
 
 # ── Semantic engine (singleton, loaded once) ──────────────────────────────────
 _semantic_engine = SemanticEngine()
@@ -303,14 +310,15 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
     if is_ambiguous:
         return [_make_unmapped("Ambiguous requirement: consensus was not agreed in review", "Medium")]
 
+    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in [
+        "not agreed", "did not agree", "unclear", "could mean",
+        "undecided", "ambiguous", "further review", "unresolved"
+    ])
+    if is_ambiguous:
+        return [_make_unmapped("Ambiguous requirement: consensus was not agreed in review", "Medium")]
+
     matches_found = []
-    best_cand = None
-    best_hybrid = -1.0
-    best_semantic = None
-    best_lexical = 0.0
-    best_intent = 0.0
-    best_evidence = ""
-    best_shared_intents = set()
+    evaluated_candidates = []
 
     for cand in candidate_arts:
         # ── 1. Explainable conflict check (rule-based) ────────────────────────
@@ -334,17 +342,23 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             source_art["text"], cand["text"], lex_score, shared_intents
         )
 
-        # ── 4. Negation / polarity check (generic) ────────────────────────────
+        # ── 4. Action & Entity Alignment (Anti-Hallucination) ─────────────────
+        action_score, action_reason = evaluate_action_alignment(source_art["text"], cand["text"])
+        entity_score, entity_reason = evaluate_entity_alignment(source_art["text"], cand["text"])
+        has_missing, missing_reason = detect_missing_conditions(source_art["text"], cand["text"])
+        is_extension, extension_reason = detect_capability_extension(source_art["text"], cand["text"])
+
+        # ── 5. Negation / polarity check (generic) ────────────────────────────
         polarity_conflict, polarity_reason = check_polarity_conflict(source_art["text"], cand["text"])
         numeric_result, numeric_reason = check_numeric_conflict(source_art["text"], cand["text"])
 
-        # ── 5. Change Request AFFECTS: skip contradictory spec targets ─────────
-        if relationship_type == "AFFECTS" and has_conflict:
+        # ── 6. Change Request AFFECTS: skip contradictory spec targets ─────────
+        if relationship_type == "AFFECTS" and (has_conflict or polarity_conflict):
             continue
 
-        # ── 6. Emit CONFLICT records ──────────────────────────────────────────
+        # ── 7. Emit CONFLICT records ──────────────────────────────────────────
         # Rule-based conflict (e.g., reversible password vs one-way hash)
-        if has_conflict and (lex_score >= min_partial or shared_intents) and relationship_type == "IMPLEMENTED_BY":
+        if has_conflict and (lex_score >= min_partial or shared_intents or (sem_score and sem_score >= 0.40)) and relationship_type == "IMPLEMENTED_BY":
             matches_found.append({
                 "source_document": source_art["document_name"],
                 "source_type": source_art["document_type"],
@@ -370,7 +384,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             continue
 
         # Generic polarity conflict (negation detector) — only when semantically related enough
-        if polarity_conflict and hybrid >= 0.40:
+        if polarity_conflict and hybrid >= 0.40 and not is_extension:
             matches_found.append({
                 "source_document": source_art["document_name"],
                 "source_type": source_art["document_type"],
@@ -395,80 +409,177 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             })
             continue
 
-        # ── 7. Track best non-conflicting candidate ───────────────────────────
-        if hybrid > best_hybrid:
-            best_hybrid = hybrid
-            best_cand = cand
-            best_semantic = sem_score
-            best_lexical = lex_score
-            best_intent = intent_val
-            best_evidence = (
-                f"Semantic: {sem_score:.2f} | Lexical: {lex_score:.2f} | Hybrid: {hybrid:.2f} | "
-                f"{lex_evidence}"
-                + (f" | {numeric_reason}" if numeric_reason else "")
-            )
-            best_shared_intents = shared_intents
+        # ── 8. Composite Evidence Fusion ──────────────────────────────────────
+        if action_score <= 0.20 and not shared_intents and not bool(re.search(r'\b' + re.escape(cand["artifact_id"]) + r'\b', source_art["text"])):
+            # Action mismatch penalty (e.g. reconcile vs refund)
+            composite_score = hybrid * 0.35
+        else:
+            composite_score = (hybrid * 0.70) + (action_score * 0.15) + (entity_score * 0.15)
 
-    # ── 8. Emit MATCHED / PARTIAL / UNMAPPED ─────────────────────────────────
-    # Determine status using hybrid score + secondary signals
-    # A high hybrid score alone does NOT create a relationship.
-    # Candidate must also have passed: type-safe filter + domain relevance + minimum evidence.
+        evidence_str = (
+            f"Semantic: {sem_score:.2f} | Lexical: {lex_score:.2f} | Hybrid: {hybrid:.2f} | "
+            f"{action_reason} | {entity_reason} | {lex_evidence}"
+            + (f" | {numeric_reason}" if numeric_reason else "")
+            + (f" | {extension_reason}" if is_extension else "")
+            + (f" | {missing_reason}" if has_missing else "")
+        )
 
-    if best_cand:
-        # Numeric MODIFIED_VALUE → prefer PARTIAL over MATCHED
-        num_result, num_reason = check_numeric_conflict(source_art["text"], best_cand["text"])
+        evaluated_candidates.append({
+            "cand": cand,
+            "hybrid": hybrid,
+            "composite_score": round(composite_score, 4),
+            "sem_score": sem_score,
+            "lex_score": lex_score,
+            "intent_val": intent_val,
+            "action_score": action_score,
+            "entity_score": entity_score,
+            "has_missing": has_missing,
+            "missing_reason": missing_reason,
+            "is_extension": is_extension,
+            "extension_reason": extension_reason,
+            "num_result": numeric_result,
+            "num_reason": numeric_reason,
+            "evidence": evidence_str,
+            "shared_intents": shared_intents
+        })
+
+    # ── 9. Candidate Ranking & Ambiguity Check ────────────────────────────────
+    ranked_cands = rank_and_disambiguate_candidates(
+        evaluated_candidates,
+        min_match_threshold=HYBRID_MATCH_THRESHOLD,
+        min_partial_threshold=HYBRID_PARTIAL_THRESHOLD,
+        ambiguity_margin=0.04
+    )
+
+    if ranked_cands:
+        best = ranked_cands[0]
+        cand = best["cand"]
+        best_composite = best["composite_score"]
+        best_hybrid = best["hybrid"]
+        best_sem = best["sem_score"]
+        best_lex = best["lex_score"]
+        best_intent = best["intent_val"]
+        best_ev = best["evidence"]
         
-        # Domain validation: if both artifacts have intents but zero overlap, reject
-        domain_ok = bool(best_shared_intents) or best_hybrid >= HYBRID_MATCH_THRESHOLD
-
-        if domain_ok and best_hybrid >= HYBRID_MATCH_THRESHOLD and num_result != "MODIFIED_VALUE":
-            conf = "High" if best_hybrid >= 0.60 or bool(best_shared_intents) else "Medium"
+        # Hard check for divergent actions with zero shared intents (e.g. Case 8)
+        if best["action_score"] <= 0.20 and not best["shared_intents"] and not bool(re.search(r'\b' + re.escape(cand["artifact_id"]) + r'\b', source_art["text"])):
+            pass  # Will fall through to UNMAPPED
+        elif best.get("is_ambiguous"):
             matches_found.append({
                 "source_document": source_art["document_name"],
                 "source_type": source_art["document_type"],
                 "source_artifact_type": source_art["artifact_type"],
                 "source_artifact": source_art["artifact_id"],
                 "source_text": source_art["text"],
-                "target_document": best_cand["document_name"],
-                "target_type": best_cand["document_type"],
-                "target_artifact_type": best_cand["artifact_type"],
-                "target_artifact": best_cand["artifact_id"],
-                "target_text": best_cand["text"],
-                "relationship": relationship_type,
-                "status": "MATCHED",
-                "similarity": best_hybrid,
-                "semantic_similarity": best_semantic,
-                "lexical_similarity": round(best_lexical, 4),
-                "hybrid_score": best_hybrid,
-                "intent_score": round(best_intent, 4),
-                "semantic_enabled": _sem_available,
-                "confidence": conf,
-                "evidence": best_evidence
-            })
-        elif best_hybrid >= HYBRID_PARTIAL_THRESHOLD:
-            # PARTIAL: modified value, or hybrid between partial and match thresholds
-            partial_reason = f"Modified quantitative value: {num_reason}" if num_result == "MODIFIED_VALUE" else f"Partial conceptual overlap"
-            matches_found.append({
-                "source_document": source_art["document_name"],
-                "source_type": source_art["document_type"],
-                "source_artifact_type": source_art["artifact_type"],
-                "source_artifact": source_art["artifact_id"],
-                "source_text": source_art["text"],
-                "target_document": best_cand["document_name"],
-                "target_type": best_cand["document_type"],
-                "target_artifact_type": best_cand["artifact_type"],
-                "target_artifact": best_cand["artifact_id"],
-                "target_text": best_cand["text"],
+                "target_document": cand["document_name"],
+                "target_type": cand["document_type"],
+                "target_artifact_type": cand["artifact_type"],
+                "target_artifact": cand["artifact_id"],
+                "target_text": cand["text"],
                 "relationship": relationship_type,
                 "status": "PARTIAL",
                 "similarity": best_hybrid,
-                "semantic_similarity": best_semantic,
-                "lexical_similarity": round(best_lexical, 4),
+                "semantic_similarity": best_sem,
+                "lexical_similarity": round(best_lex, 4),
                 "hybrid_score": best_hybrid,
                 "intent_score": round(best_intent, 4),
                 "semantic_enabled": _sem_available,
                 "confidence": "Medium",
-                "evidence": f"{partial_reason} ({best_evidence})"
+                "evidence": f"Ambiguous candidates with close scores | {best_ev}"
+            })
+        elif best["has_missing"]:
+            # Source has multiple clauses, target only has one -> PARTIAL
+            matches_found.append({
+                "source_document": source_art["document_name"],
+                "source_type": source_art["document_type"],
+                "source_artifact_type": source_art["artifact_type"],
+                "source_artifact": source_art["artifact_id"],
+                "source_text": source_art["text"],
+                "target_document": cand["document_name"],
+                "target_type": cand["document_type"],
+                "target_artifact_type": cand["artifact_type"],
+                "target_artifact": cand["artifact_id"],
+                "target_text": cand["text"],
+                "relationship": relationship_type,
+                "status": "PARTIAL",
+                "similarity": best_hybrid,
+                "semantic_similarity": best_sem,
+                "lexical_similarity": round(best_lex, 4),
+                "hybrid_score": best_hybrid,
+                "intent_score": round(best_intent, 4),
+                "semantic_enabled": _sem_available,
+                "confidence": "Medium",
+                "evidence": f"Partial capability: {best['missing_reason']} | {best_ev}"
+            })
+        elif best["num_result"] == "MODIFIED_VALUE":
+            matches_found.append({
+                "source_document": source_art["document_name"],
+                "source_type": source_art["document_type"],
+                "source_artifact_type": source_art["artifact_type"],
+                "source_artifact": source_art["artifact_id"],
+                "source_text": source_art["text"],
+                "target_document": cand["document_name"],
+                "target_type": cand["document_type"],
+                "target_artifact_type": cand["artifact_type"],
+                "target_artifact": cand["artifact_id"],
+                "target_text": cand["text"],
+                "relationship": relationship_type,
+                "status": "PARTIAL",
+                "similarity": best_hybrid,
+                "semantic_similarity": best_sem,
+                "lexical_similarity": round(best_lex, 4),
+                "hybrid_score": best_hybrid,
+                "intent_score": round(best_intent, 4),
+                "semantic_enabled": _sem_available,
+                "confidence": "Medium",
+                "evidence": f"Modified quantitative value: {best['num_reason']} | {best_ev}"
+            })
+        elif (best_hybrid >= HYBRID_MATCH_THRESHOLD or best_composite >= HYBRID_MATCH_THRESHOLD or bool(best["shared_intents"])) and best["composite_score"] >= 0.38:
+            conf = "High" if (best_hybrid >= 0.60 or bool(best["shared_intents"])) and best.get("score_margin", 1.0) >= 0.08 else "Medium"
+            matches_found.append({
+                "source_document": source_art["document_name"],
+                "source_type": source_art["document_type"],
+                "source_artifact_type": source_art["artifact_type"],
+                "source_artifact": source_art["artifact_id"],
+                "source_text": source_art["text"],
+                "target_document": cand["document_name"],
+                "target_type": cand["document_type"],
+                "target_artifact_type": cand["artifact_type"],
+                "target_artifact": cand["artifact_id"],
+                "target_text": cand["text"],
+                "relationship": relationship_type,
+                "status": "MATCHED",
+                "similarity": best_hybrid,
+                "semantic_similarity": best_sem,
+                "lexical_similarity": round(best_lex, 4),
+                "hybrid_score": best_hybrid,
+                "intent_score": round(best_intent, 4),
+                "semantic_enabled": _sem_available,
+                "confidence": conf,
+                "evidence": best_ev
+            })
+        elif best_hybrid >= HYBRID_PARTIAL_THRESHOLD or best_composite >= HYBRID_PARTIAL_THRESHOLD:
+            matches_found.append({
+                "source_document": source_art["document_name"],
+                "source_type": source_art["document_type"],
+                "source_artifact_type": source_art["artifact_type"],
+                "source_artifact": source_art["artifact_id"],
+                "source_text": source_art["text"],
+                "target_document": cand["document_name"],
+                "target_type": cand["document_type"],
+                "target_artifact_type": cand["artifact_type"],
+                "target_artifact": cand["artifact_id"],
+                "target_text": cand["text"],
+                "relationship": relationship_type,
+                "status": "PARTIAL",
+                "similarity": best_hybrid,
+                "semantic_similarity": best_sem,
+                "lexical_similarity": round(best_lex, 4),
+                "hybrid_score": best_hybrid,
+                "intent_score": round(best_intent, 4),
+                "semantic_enabled": _sem_available,
+                "confidence": "Medium",
+                "evidence": f"Partial conceptual overlap ({best_ev})"
             })
 
     if not matches_found:
@@ -486,7 +597,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             "hybrid_score": 0.0, "intent_score": 0.0,
             "semantic_enabled": _sem_available,
             "confidence": "Low",
-            "evidence": "No target artifact satisfied hybrid semantic+lexical match criteria"
+            "evidence": "No target artifact satisfied combined semantic, action, and entity match criteria"
         })
 
     return matches_found
