@@ -34,7 +34,7 @@ EVIDENCE_WEIGHTS = {
     "constraint": 0.03, # Quantitative / limit consistency
 }
 
-# ── Generic Action Patterns & Families ────────────────────────────────────────
+# ── Generic Action Patterns & Specialized Capability Families ─────────────────
 ACTION_PATTERNS = {
     "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b", r"\baccess\s+control\b", r"\bpermission\w*\b", r"\brbac\b"],
     "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b", r"\bwithdraw\w*\b"],
@@ -51,12 +51,19 @@ ACTION_PATTERNS = {
     "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcompute\b"],
     "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b"],
     "detect_dup": [r"\bdetect\w*\s+duplicat\w*\b", r"\bprevent\w*\s+duplicat\w*\b", r"\bduplicat\w*\s+check\w*\b", r"\bflag\w*\s+duplicat\w*\b", r"\bdedup\w*\b", r"\bduplicate\s+receipt\w*\b", r"\bduplicate\s+warning\b", r"\bduplicate\s+claim\w*\b", r"\bduplicate\s+image\w*\b"],
+    "prevent_conflict": [r"\boverlapping\b", r"\bdouble-?book\w*\b", r"\bconflict\w*\s+assignment\w*\b", r"\bcollision\b"],
+    "history": [r"\bhistory\b", r"\bhistorical\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\brepair\s+history\b", r"\bmaintenance\s+history\b"],
+    "fault_report": [r"\bfault\w*\b", r"\bbreakdown\w*\b", r"\bdefect\w*\b", r"\bmalfunction\w*\b"],
+    "emergency_contact": [r"\bemergency\s+contact\w*\b", r"\bnext-?of-?kin\b"],
 }
+
+# Specialized capabilities that must be mutually aligned
+SPECIALIZED_CAPABILITIES = {"detect_dup", "prevent_conflict", "history", "fault_report", "emergency_contact"}
 
 # ── Generic Actor / Role Patterns ─────────────────────────────────────────────
 ACTOR_PATTERNS = {
-    "employee": [r"\bemployee\w*\b", r"\bstaff\b", r"\bworker\w*\b", r"\btraveler\w*\b", r"\brider\w*\b", r"\bstudent\w*\b", r"\bpatient\w*\b", r"\bcustomer\w*\b", r"\buser\w*\b", r"\bpassenger\w*\b", r"\bcontroller\w*\b", r"\boperator\w*\b"],
-    "manager": [r"\bmanager\w*\b", r"\bsupervisor\w*\b", r"\bapprover\w*\b", r"\blead\w*\b", r"\bhead\b", r"\bdirector\w*\b", r"\bphysician\w*\b", r"\bdoctor\w*\b", r"\bflight\s+director\b"],
+    "employee": [r"\bemployee\w*\b", r"\bstaff\b", r"\bworker\w*\b", r"\btraveler\w*\b", r"\brider\w*\b", r"\bstudent\w*\b", r"\bpatient\w*\b", r"\bcustomer\w*\b", r"\buser\w*\b", r"\bpassenger\w*\b", r"\bcontroller\w*\b", r"\boperator\w*\b", r"\bdriver\w*\b"],
+    "manager": [r"\bmanager\w*\b", r"\bsupervisor\w*\b", r"\bapprover\w*\b", r"\blead\w*\b", r"\bhead\b", r"\bdirector\w*\b", r"\bphysician\w*\b", r"\bdoctor\w*\b", r"\bflight\s+director\b", r"\bdispatcher\w*\b"],
     "finance": [r"\bfinance\b", r"\baccountant\w*\b", r"\bbursar\b", r"\bauditor\w*\b", r"\bcashier\w*\b", r"\bcompliance\b"],
     "admin": [r"\badmin\w*\b", r"\bsysadmin\b", r"\bhelpdesk\b"],
 }
@@ -82,6 +89,32 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"capture"}, {"detect_dup"}),   # Receipt capture/upload != Duplicate fraud detection
     ({"auth"}, {"detect_dup"}),      # Access control != Duplicate detection
 ]
+
+
+def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
+    """Evaluates action compatibility between source and target."""
+    actions_a = extract_actions(text_a)
+    actions_b = extract_actions(text_b)
+
+    if not actions_a or not actions_b:
+        return 0.70, "Neutral action alignment"
+
+    # Specialized capability mutual alignment (e.g. duplicate check, overlapping prevention, repair history)
+    for spec in SPECIALIZED_CAPABILITIES:
+        if (spec in actions_a and spec not in actions_b) or (spec in actions_b and spec not in actions_a):
+            return 0.05, f"Incompatible action divergence: specialized capability [{spec}] requires matching realization"
+
+    # Shared actions take precedence
+    shared = actions_a & actions_b
+    if shared:
+        return 1.0, f"Aligned actions on [{', '.join(shared)}]"
+
+    # Check for strictly incompatible action pairs when no actions are shared
+    for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
+        if (actions_a & group1 and actions_b & group2) or (actions_a & group2 and actions_b & group1):
+            return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
+
+    return 0.40, f"Different actions: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
 # ── Generic Filler Stopwords ──────────────────────────────────────────────────
 GENERIC_BOILERPLATE = {
@@ -160,31 +193,6 @@ def build_capability_profile(text: str) -> Dict:
             "discussed but", "no consensus", "pending decision"
         ])
     }
-
-
-def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
-    """Evaluates action compatibility between source and target."""
-    actions_a = extract_actions(text_a)
-    actions_b = extract_actions(text_b)
-
-    if not actions_a or not actions_b:
-        return 0.70, "Neutral action alignment"
-
-    # Specialized fraud / duplicate capability: must be mutually present on both sides
-    if ("detect_dup" in actions_a and "detect_dup" not in actions_b) or ("detect_dup" in actions_b and "detect_dup" not in actions_a):
-        return 0.05, f"Incompatible action divergence: duplicate fraud detection requires dedicated verification target [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
-
-    # Shared actions take precedence
-    shared = actions_a & actions_b
-    if shared:
-        return 1.0, f"Aligned actions on [{', '.join(shared)}]"
-
-    # Check for strictly incompatible action pairs when no actions are shared
-    for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
-        if (actions_a & group1 and actions_b & group2) or (actions_a & group2 and actions_b & group1):
-            return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
-
-    return 0.40, f"Different actions: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
 
 def evaluate_entity_alignment(text_a: str, text_b: str) -> Tuple[float, str]:

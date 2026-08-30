@@ -30,6 +30,7 @@ DOMAINS = [
     ("TravelOps (6th Domain)", os.path.join(os.path.dirname(__file__), "tests", "travelops_docs")),
     ("InsureFlow (Blind Dataset)", os.path.join(os.path.dirname(__file__), "tests", "insureflow_docs")),
     ("AeroLogix (7th Unseen Domain)", os.path.join(os.path.dirname(__file__), "tests", "aerologix_docs")),
+    ("FleetOps (Vehicle Logistics)", os.path.join(os.path.dirname(__file__), "tests", "fleetops_docs")),
 ]
 
 SEP = "=" * 75
