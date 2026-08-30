@@ -49,6 +49,10 @@ PERMISSION_PATTERNS = [
     r'\bpermitted\b',
     r'\benabled\b',
     r'\bsupported\b',
+    r'\bmandatory\b',
+    r'\brequired\b',
+    r'\bmust\b',
+    r'\bshall\b',
     r'\bwithout\s+(?:logging|authenticating|credentials|mfa|2fa|login)\b',
 ]
 

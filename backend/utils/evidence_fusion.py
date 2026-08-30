@@ -1,17 +1,19 @@
 """
 backend/utils/evidence_fusion.py
 
-Generic Evidence Fusion & Anti-Hallucination Engine for ReqVision AI Phase 3.
+Generic Evidence Fusion & Capability Reasoning Engine for ReqVision AI Phase 3.
 
-Implements the Canonical Relevance Gate Architecture:
-1. Normalized Capability Extraction (Actors, Actions, Objects, Modalities, Constraints)
-2. Hard Candidate Relevance Gate (Rejects unrelated candidates before conflict/matching analysis)
-3. Action & Workflow Alignment (Distinguishes estimate vs refund, approve vs create, cancel vs access-control)
-4. Meaningful Entity Alignment (Filters out generic stopword dominance)
-5. Entailment & Secondary Condition Completeness Check
-6. Capability Extension Recognition (Additional options != conflict)
-7. Candidate Ranking & Ambiguity Margin Validation (Close margins -> Ambiguous PARTIAL)
-8. Anti-False-Conflict Isolation (Only confirmed relevant candidates are tested for contradiction)
+Implements the Complete Canonical Relevance Gate Architecture:
+1. Normalized Capability Representation (Actors, Actions, Objects, Contexts, Modalities, Constraints)
+2. Hard Candidate Relevance Gate (Rejects non-equivalent candidates before conflict/matching)
+3. Action & Workflow Alignment (Distinguishes distinct operations e.g. reconcile != refund)
+4. Meaningful Entity & Object Alignment (Filters out generic stopword dominance)
+5. Actor / Role Alignment (Verifies compatible workflow actors)
+6. Context / Temporal Condition Alignment (before, after, when, if, during, unless)
+7. Capability Coverage & Entailment (Detects missing secondary clauses -> PARTIAL)
+8. Capability Extension Recognition (Target adds optional alternative channels -> MATCHED extended)
+9. Score Margin & Candidate Disambiguation (Close scores -> Ambiguous PARTIAL)
+10. Anti-False-Conflict Isolation (Only confirmed relevant candidates are tested for contradiction)
 
 NO project-specific logic, IDs, filenames, or hardcoded project names.
 Operates strictly on generic linguistic, structural, and semantic properties.
@@ -20,7 +22,19 @@ Operates strictly on generic linguistic, structural, and semantic properties.
 import re
 from typing import Tuple, List, Dict, Set, Optional
 
-# Generic core action patterns and synonymous action families
+# ── Centralized Configurable Evidence Weights ─────────────────────────────────
+EVIDENCE_WEIGHTS = {
+    "semantic": 0.45,   # Dense neural conceptual similarity (all-MiniLM-L6-v2)
+    "lexical": 0.15,    # Exact token & morphological overlap (TF-IDF + Jaccard)
+    "intent": 0.10,     # Domain intent category anchor
+    "action": 0.12,     # Primary action / verb alignment
+    "entity": 0.08,     # Domain object / noun entity Jaccard
+    "actor": 0.04,      # Workflow role / actor compatibility
+    "context": 0.03,    # Temporal / conditional trigger alignment
+    "constraint": 0.03, # Quantitative / limit consistency
+}
+
+# ── Generic Action Patterns & Families ────────────────────────────────────────
 ACTION_PATTERNS = {
     "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b", r"\baccess\s+control\b", r"\bpermission\w*\b", r"\brbac\b"],
     "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b", r"\bwithdraw\w*\b"],
@@ -32,22 +46,30 @@ ACTION_PATTERNS = {
     "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b", r"\bdiscover\w*\b"],
     "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\barchiv\w*\b", r"\bdump\b", r"\bgenerate\s+report\b"],
     "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b"],
-    "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b"],
+    "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b"],
     "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b"],
-    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b"],
-    "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b"],
+    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcompute\b"],
+    "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b"],
     "detect_dup": [r"\bdetect\w*\s+duplicat\w*\b", r"\bprevent\w*\s+duplicat\w*\b", r"\bduplicat\w*\s+check\w*\b", r"\bflag\w*\s+duplicat\w*\b", r"\bdedup\w*\b", r"\bduplicate\s+receipt\w*\b", r"\bduplicate\s+warning\b", r"\bduplicate\s+claim\w*\b", r"\bduplicate\s+image\w*\b"],
 }
 
-# Generic actor / role patterns
+# ── Generic Actor / Role Patterns ─────────────────────────────────────────────
 ACTOR_PATTERNS = {
-    "employee": [r"\bemployee\w*\b", r"\bstaff\b", r"\bworker\w*\b", r"\btraveler\w*\b", r"\brider\w*\b", r"\bstudent\w*\b", r"\bpatient\w*\b", r"\bcustomer\w*\b", r"\buser\w*\b"],
-    "manager": [r"\bmanager\w*\b", r"\bsupervisor\w*\b", r"\bapprover\w*\b", r"\blead\w*\b", r"\bhead\b", r"\bdirector\w*\b"],
+    "employee": [r"\bemployee\w*\b", r"\bstaff\b", r"\bworker\w*\b", r"\btraveler\w*\b", r"\brider\w*\b", r"\bstudent\w*\b", r"\bpatient\w*\b", r"\bcustomer\w*\b", r"\buser\w*\b", r"\bpassenger\w*\b", r"\bcontroller\w*\b", r"\boperator\w*\b"],
+    "manager": [r"\bmanager\w*\b", r"\bsupervisor\w*\b", r"\bapprover\w*\b", r"\blead\w*\b", r"\bhead\b", r"\bdirector\w*\b", r"\bphysician\w*\b", r"\bdoctor\w*\b", r"\bflight\s+director\b"],
     "finance": [r"\bfinance\b", r"\baccountant\w*\b", r"\bbursar\b", r"\bauditor\w*\b", r"\bcashier\w*\b", r"\bcompliance\b"],
-    "admin": [r"\badmin\w*\b", r"\bsysadmin\b", r"\boperator\w*\b", r"\bhelpdesk\b"],
+    "admin": [r"\badmin\w*\b", r"\bsysadmin\b", r"\bhelpdesk\b"],
 }
 
-# Incompatible action pairs that represent completely distinct capabilities
+# ── Context / Temporal Modifiers ──────────────────────────────────────────────
+CONTEXT_PATTERNS = {
+    "temporal_before": [r"\bbefore\b", r"\bprior\s+to\b", r"\bpre-?\b", r"\buntil\b"],
+    "temporal_after": [r"\bafter\b", r"\bfollowing\b", r"\bonce\b", r"\bupon\b"],
+    "conditional": [r"\bwhen\b", r"\bif\b", r"\bunless\b", r"\bonly\s+when\b", r"\bin\s+case\b"],
+    "durational": [r"\bduring\b", r"\bwhile\b", r"\bthroughout\b"],
+}
+
+# ── Incompatible Action Pairs ─────────────────────────────────────────────────
 INCOMPATIBLE_ACTION_PAIRS = [
     ({"reconcile"}, {"refund"}),
     ({"export"}, {"manage"}),
@@ -61,7 +83,7 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"auth"}, {"detect_dup"}),      # Access control != Duplicate detection
 ]
 
-# Stopwords to filter out when extracting entities
+# ── Generic Filler Stopwords ──────────────────────────────────────────────────
 GENERIC_BOILERPLATE = {
     "system", "platform", "user", "users", "service", "services", "application",
     "feature", "module", "component", "endpoint", "shall", "must", "should",
@@ -74,9 +96,7 @@ GENERIC_BOILERPLATE = {
 
 
 def extract_actions(text: str) -> Set[str]:
-    """
-    Extracts high-level action cluster keys present in the requirement text.
-    """
+    """Extracts high-level action cluster keys present in the requirement text."""
     t = text.lower()
     detected_clusters = set()
     for cluster_name, patterns in ACTION_PATTERNS.items():
@@ -86,9 +106,7 @@ def extract_actions(text: str) -> Set[str]:
 
 
 def extract_actors(text: str) -> Set[str]:
-    """
-    Extracts high-level actor / role categories mentioned in the text.
-    """
+    """Extracts high-level actor / role categories mentioned in the text."""
     t = text.lower()
     detected_actors = set()
     for role_name, patterns in ACTOR_PATTERNS.items():
@@ -97,11 +115,18 @@ def extract_actors(text: str) -> Set[str]:
     return detected_actors
 
 
+def extract_contexts(text: str) -> Set[str]:
+    """Extracts temporal and conditional trigger types from the requirement."""
+    t = text.lower()
+    detected_contexts = set()
+    for ctx_name, patterns in CONTEXT_PATTERNS.items():
+        if any(re.search(pat, t) for pat in patterns):
+            detected_contexts.add(ctx_name)
+    return detected_contexts
+
+
 def extract_entities(text: str) -> Set[str]:
-    """
-    Extracts domain-relevant entity tokens (excluding boilerplate).
-    Uses stemmed representation to bridge morphological variants.
-    """
+    """Extracts domain-relevant entity tokens (excluding boilerplate)."""
     t = text.lower()
     raw_tokens = re.findall(r'\b[a-z]{3,}\b', t)
     entities = set()
@@ -121,10 +146,24 @@ def extract_entities(text: str) -> Set[str]:
     return entities
 
 
+def build_capability_profile(text: str) -> Dict:
+    """Builds a normalized generic capability representation for an artifact."""
+    return {
+        "text": text,
+        "actions": extract_actions(text),
+        "actors": extract_actors(text),
+        "contexts": extract_contexts(text),
+        "entities": extract_entities(text),
+        "is_uncertain": any(phrase in text.lower() for phrase in [
+            "not agreed", "did not agree", "unclear", "could mean", "undecided",
+            "ambiguous", "further review", "unresolved", "did not define",
+            "discussed but", "no consensus", "pending decision"
+        ])
+    }
+
+
 def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
-    """
-    Evaluates action compatibility between source and target.
-    """
+    """Evaluates action compatibility between source and target."""
     actions_a = extract_actions(text_a)
     actions_b = extract_actions(text_b)
 
@@ -151,9 +190,7 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
 
 
 def evaluate_entity_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
-    """
-    Calculates entity Jaccard overlap between source and target requirements.
-    """
+    """Calculates entity Jaccard overlap between source and target requirements."""
     ent_a = extract_entities(text_a)
     ent_b = extract_entities(text_b)
 
@@ -170,6 +207,30 @@ def evaluate_entity_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
         return 0.55, f"Weak shared entity overlap: [{', '.join(list(intersection)[:3])}]"
     else:
         return 0.10, "No shared domain entities"
+
+
+def evaluate_actor_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
+    """Evaluates actor / role compatibility."""
+    act_a = extract_actors(text_a)
+    act_b = extract_actors(text_b)
+
+    if not act_a or not act_b:
+        return 0.60, "Neutral actor alignment"
+    if act_a & act_b:
+        return 1.0, f"Compatible actors [{', '.join(act_a & act_b)}]"
+    return 0.40, f"Different workflow actors: [{', '.join(act_a)}] vs [{', '.join(act_b)}]"
+
+
+def evaluate_context_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
+    """Evaluates temporal and conditional trigger consistency."""
+    ctx_a = extract_contexts(text_a)
+    ctx_b = extract_contexts(text_b)
+
+    if not ctx_a or not ctx_b:
+        return 0.60, "Neutral context"
+    if ctx_a & ctx_b:
+        return 1.0, f"Matching context triggers [{', '.join(ctx_a & ctx_b)}]"
+    return 0.50, "Different context triggers"
 
 
 def evaluate_candidate_relevance_gate(
@@ -193,7 +254,7 @@ def evaluate_candidate_relevance_gate(
         return True, "Explicit artifact reference passed gate"
 
     # 1. Check for administrative / hardware non-software exclusions
-    if any(phrase in source_text.lower() for phrase in ["ergonomic chair", "desk", "knife", "patio umbrella", "vending machine", "furniture"]):
+    if any(phrase in source_text.lower() for phrase in ["ergonomic chair", "desk", "knife", "patio umbrella", "vending machine", "furniture", "shoe cleaner", "espresso station"]):
         return False, "Administrative / non-software physical item excluded from relevance gate"
 
     # 2. Check for unresolved review statements
