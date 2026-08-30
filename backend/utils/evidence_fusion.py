@@ -170,11 +170,9 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
     if not actions_a or not actions_b:
         return 0.70, "Neutral action alignment"
 
-    # Specialized capability divergence (duplicate fraud check != generic photo upload/capture)
-    if "detect_dup" in actions_b and "detect_dup" not in actions_a and "capture" in actions_a:
-        return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
-    if "detect_dup" in actions_a and "detect_dup" not in actions_b and "capture" in actions_b:
-        return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
+    # Specialized fraud / duplicate capability: must be mutually present on both sides
+    if ("detect_dup" in actions_a and "detect_dup" not in actions_b) or ("detect_dup" in actions_b and "detect_dup" not in actions_a):
+        return 0.05, f"Incompatible action divergence: duplicate fraud detection requires dedicated verification target [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
     # Shared actions take precedence
     shared = actions_a & actions_b
@@ -253,12 +251,27 @@ def evaluate_candidate_relevance_gate(
     if has_explicit_ref:
         return True, "Explicit artifact reference passed gate"
 
+    src_low = source_text.lower()
+    tgt_low = target_text.lower()
+
     # 1. Check for administrative / hardware non-software exclusions
-    if any(phrase in source_text.lower() for phrase in ["ergonomic chair", "desk", "knife", "patio umbrella", "vending machine", "furniture", "shoe cleaner", "espresso station"]):
+    hardware_terms = [
+        "projector", "screen", "monitor", "whiteboard", "chair", "desk", "furniture",
+        "charger", "charging station", "espresso", "coffee", "shoe cleaner", "air purifier",
+        "air conditioner", "hvac", "printer", "shredder", "vending machine", "microwave",
+        "refrigerator", "cooler", "cable", "door lock", "umbrella", "knife", "breakroom", "parking lot"
+    ]
+    if any(phrase in src_low for phrase in hardware_terms):
         return False, "Administrative / non-software physical item excluded from relevance gate"
 
     # 2. Check for unresolved review statements
-    if any(phrase in source_text.lower() for phrase in ["not agreed", "did not agree", "unclear", "could mean", "undecided", "ambiguous", "further review", "unresolved", "did not define", "discussed but", "no consensus"]):
+    unresolved_terms = [
+        "not agreed", "did not agree", "unclear", "could mean", "undecided", "ambiguous",
+        "further review", "unresolved", "did not define", "discussed but", "no consensus",
+        "pending decision", "not determined", "did not determine", "not decided", "did not decide",
+        "meaning was not", "meaning not determined", "was not determined", "not yet agreed"
+    ]
+    if any(phrase in src_low for phrase in unresolved_terms):
         return False, "Unresolved review statement excluded from automatic mapping"
 
     actions_a = extract_actions(source_text)
@@ -276,10 +289,14 @@ def evaluate_candidate_relevance_gate(
         return False, "Relevance Gate Rejected: Unrelated domain entities"
 
     # 5. NFR / Performance constraint alignment: performance NFRs must not map to purely functional stories
-    perf_keywords = {"latency", "response time", "throughput", "concurrent", "availability", "uptime", "p95", "p99", "packets per second", "checkouts per minute"}
-    src_perf = any(kw in source_text.lower() for kw in perf_keywords)
-    tgt_perf = any(kw in target_text.lower() for kw in (perf_keywords | {"scale", "scaling", "autoscaler", "cache", "redis", "load balanc", "rate limit", "partition", "kafka", "distributed", "traffic"}))
-    if src_perf and not tgt_perf and (semantic_sim or 0) < 0.65:
+    perf_keywords = {
+        "latency", "response time", "throughput", "concurrent", "concurrency", "simultaneous",
+        "availability", "uptime", "p95", "p99", "packets per second", "checkouts per minute",
+        "performance", "capacity", "connections", "sessions", "rps", "tps", "qps"
+    }
+    src_perf = any(kw in src_low for kw in perf_keywords)
+    tgt_perf = any(kw in tgt_low for kw in (perf_keywords | {"scale", "scaling", "autoscaler", "cache", "redis", "load balanc", "rate limit", "partition", "kafka", "distributed", "traffic"}))
+    if src_perf and not tgt_perf:
         return False, "Relevance Gate Rejected: NFR performance constraint not represented in functional target"
 
     # 6. Semantic threshold minimum
