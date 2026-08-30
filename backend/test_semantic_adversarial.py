@@ -1,7 +1,7 @@
 """
-ReqVision AI — Phase 3 Final 30-Principle Adversarial Semantic Suite.
+ReqVision AI — Phase 3 Final 34-Principle Adversarial Semantic Suite.
 
-Verifies the Complete Generic Capability Reasoning & Anti-Hallucination Pipeline across all 30 principles:
+Verifies the Complete Generic Capability Reasoning & Anti-Hallucination Pipeline across all 34 principles:
  1. Paraphrase (Cancel booking vs Revoke reservation)
  2. Synonym (Authenticate vs Verify identity)
  3. Reordered Wording (Platform sends alert when vehicle cancelled vs When shuttle cancelled send notification)
@@ -27,11 +27,15 @@ Verifies the Complete Generic Capability Reasoning & Anti-Hallucination Pipeline
 23. Genuinely Unmapped (Export blueprints to microfiche -> UNMAPPED)
 24. Unsupported New Capability (Install breakroom espresso station -> UNMAPPED)
 25. NFR without Valid Downstream Representation (API p99 latency < 1.2s vs user receiving claim status -> REJECTED)
-26. Unresolved Meeting Statement (Discussed faster approvals but did not define specs -> UNMAPPED)
+26. Unresolved Meeting Content (Discussed faster approvals but did not define specs -> UNMAPPED)
 27. Physical Operational Request (Procure 25 motorized standing desks -> UNMAPPED)
 28. Role-Sensitive Capability (Mechanic maintenance work order vs Driver dispatch route)
 29. Actor / Action Mismatch (Auditor compliance inspection vs Customer payment submission)
 30. High Topic Similarity but Wrong Capability (Vehicle GPS telematics tracking vs Driver payroll accounting)
+31. Same Action but Different Object (Update vehicle coordinates vs Update driver direct deposit)
+32. Same Object but Different Event (Disburse loan after approval vs Reject loan upon failed credit check)
+33. Same Capability but Different Constraints (Hold account for 24 hours vs Hold account for 72 hours)
+34. Exact Target Mixed with Unrelated Distractors (Exact match selected among multiple unrelated items)
 
 Run: python test_semantic_adversarial.py
 """
@@ -69,9 +73,9 @@ def check(label, condition, detail=""):
     return condition
 
 
-def run_all_30_adversarial_tests():
+def run_all_34_adversarial_tests():
     print("\n" + SEP)
-    print("  REQVISION AI — PHASE 3 COMPLETE 30-PRINCIPLE ADVERSARIAL SUITE")
+    print("  REQVISION AI — PHASE 3 COMPLETE 34-PRINCIPLE ADVERSARIAL SUITE")
     print(f"  Model: {engine.model_name}")
     print(f"  Available: {engine.is_available()}")
     print(SEP)
@@ -151,8 +155,6 @@ def run_all_30_adversarial_tests():
     a = "Clinicians shall view patient medical chart and laboratory diagnostic results."
     b = "Clinicians shall send appointment scheduling reminders to registered patients."
     sim = engine.compute_semantic_similarity(a, b)
-    act_score, _ = evaluate_action_alignment(a, b)
-    is_rel, _ = evaluate_candidate_relevance_gate(a, b, sim, 0.15, set())
     passed = check("Distinct topic objects identified with low semantic similarity", sim is not None and sim < 0.60)
     all_passed &= passed
 
@@ -170,7 +172,6 @@ def run_all_30_adversarial_tests():
     a = "System shall dispatch warehouse fulfillment order when customer payment is approved."
     b = "System shall trigger account collections notification when payment is declined."
     sim = engine.compute_semantic_similarity(a, b)
-    act_score, _ = evaluate_action_alignment(a, b)
     passed = check("Different event trigger recognized as distinct", sim is not None and sim < 0.70)
     all_passed &= passed
 
@@ -342,7 +343,7 @@ def run_all_30_adversarial_tests():
     passed = check("NFR latency constraint rejected for unrelated functional notification", not is_rel)
     all_passed &= passed
 
-    # ── PRINCIPLE 26: UNRESOLVED MEETING STATEMENT ───────────────────────────
+    # ── PRINCIPLE 26: UNRESOLVED MEETING CONTENT ─────────────────────────────
     print(f"\n{MINI}\nPRINCIPLE 26 — Unresolved Meeting Statement (discussed but not decided)")
     src = "The team discussed adding optical inter-satellite communication links but did not define technical specifications."
     spec = "Implement S-band radio telemetry receiver module."
@@ -389,10 +390,50 @@ def run_all_30_adversarial_tests():
     passed = check("Telemetry tracking rejected for route dispatch assignment", not is_rel or act_score <= 0.10)
     all_passed &= passed
 
+    # ── PRINCIPLE 31: SAME ACTION BUT DIFFERENT OBJECT ───────────────────────
+    print(f"\n{MINI}\nPRINCIPLE 31 — Same Action but Different Object (GPS coords vs Payroll Direct Deposit)")
+    a = "The system shall update real-time vehicle GPS coordinates on the dispatch map."
+    b = "The system shall update driver bank direct deposit payroll information."
+    sim = engine.compute_semantic_similarity(a, b)
+    passed = check("Distinct objects yield low semantic similarity (<0.60)", sim is not None and sim < 0.60)
+    all_passed &= passed
+
+    # ── PRINCIPLE 32: SAME OBJECT BUT DIFFERENT EVENT ────────────────────────
+    print(f"\n{MINI}\nPRINCIPLE 32 — Same Object but Different Event (Disburse after approval vs Reject on failure)")
+    a = "Disburse commercial loan funds to customer account upon underwriter approval."
+    b = "Issue rejection notice to customer upon credit score validation failure."
+    sim = engine.compute_semantic_similarity(a, b)
+    passed = check("Different workflow events recognized (<0.65)", sim is not None and sim < 0.65)
+    all_passed &= passed
+
+    # ── PRINCIPLE 33: SAME CAPABILITY BUT DIFFERENT CONSTRAINTS ──────────────
+    print(f"\n{MINI}\nPRINCIPLE 33 — Same Capability but Different Constraints (24h vs 72h Hold)")
+    a = "Place administrative hold on flagged accounts for 24 hours."
+    b = "Place administrative hold on flagged accounts for 72 hours."
+    sim = engine.compute_semantic_similarity(a, b)
+    is_rel, _ = evaluate_candidate_relevance_gate(a, b, sim, 0.40, set())
+    num_status, reason = check_numeric_conflict(a, b)
+    passed = check("Passes Relevance Gate", is_rel)
+    passed &= check("Recognized as MODIFIED_VALUE constraint change", num_status == "MODIFIED_VALUE")
+    all_passed &= passed
+
+    # ── PRINCIPLE 34: EXACT TARGET MIXED WITH UNRELATED DISTRACTORS ──────────
+    print(f"\n{MINI}\nPRINCIPLE 34 — Exact Target Mixed with Unrelated Distractors")
+    src = "The system shall process interbank wire payments via ISO 20022 messaging standard."
+    exact_tgt = "Implement ISO 20022 wire payment processor worker parsing PACS.008 messages."
+    distractor_1 = "Implement cafeteria inventory order system."
+    distractor_2 = "Backup server logs to tape storage."
+    is_exact, _ = evaluate_candidate_relevance_gate(src, exact_tgt, engine.compute_semantic_similarity(src, exact_tgt), 0.45, set())
+    is_d1, _ = evaluate_candidate_relevance_gate(src, distractor_1, engine.compute_semantic_similarity(src, distractor_1), 0.05, set())
+    is_d2, _ = evaluate_candidate_relevance_gate(src, distractor_2, engine.compute_semantic_similarity(src, distractor_2), 0.05, set())
+    passed = check("Exact target accepted", is_exact)
+    passed &= check("All unrelated distractors rejected", not is_d1 and not is_d2)
+    all_passed &= passed
+
     # ── FINAL SUMMARY ────────────────────────────────────────────────────────
     print(f"\n{SEP}")
     if all_passed:
-        print("🎉 ALL 30 ADVERSARIAL PRINCIPLE CASES PASSED")
+        print("🎉 ALL 34 ADVERSARIAL PRINCIPLE CASES PASSED")
     else:
         print("❌ SOME ADVERSARIAL CASES FAILED — review output above")
     print(SEP)
@@ -400,5 +441,5 @@ def run_all_30_adversarial_tests():
 
 
 if __name__ == "__main__":
-    success = run_all_30_adversarial_tests()
+    success = run_all_34_adversarial_tests()
     sys.exit(0 if success else 1)
