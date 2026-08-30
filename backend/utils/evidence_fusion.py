@@ -46,7 +46,7 @@ ACTION_PATTERNS = {
     "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bpush\s+notification\b", r"\bmessage\w*\b", r"\bwarn\w*\b"],
     "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b", r"\bdiscover\w*\b"],
     "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\bdump\b", r"\bgenerate\s+report\b"],
-    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b"],
+    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\w*\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b"],
     "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b", r"\bwaveform\b", r"\bstream\w*\b"],
     "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b"],
     "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcompute\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b"],
@@ -63,7 +63,9 @@ SPECIALIZED_CAPABILITIES = {"detect_dup", "prevent_conflict", "history", "fault_
 
 # ── Generic Actor / Role Patterns ─────────────────────────────────────────────
 ACTOR_PATTERNS = {
-    "employee": [r"\bemployee\w*\b", r"\bstaff\b", r"\bworker\w*\b", r"\btraveler\w*\b", r"\brider\w*\b", r"\bstudent\w*\b", r"\bpatient\w*\b", r"\bcustomer\w*\b", r"\buser\w*\b", r"\bpassenger\w*\b", r"\bcontroller\w*\b", r"\boperator\w*\b", r"\bdriver\w*\b"],
+    "specialist": [r"\bmechanic\w*\b", r"\btechnician\w*\b", r"\bengineer\w*\b", r"\bfield\s+worker\b"],
+    "driver": [r"\bdriver\w*\b", r"\bchauffeur\b", r"\bpilot\b"],
+    "employee": [r"\bemployee\w*\b", r"\bstaff\b", r"\bworker\w*\b", r"\btraveler\w*\b", r"\brider\w*\b", r"\bstudent\w*\b", r"\bpatient\w*\b", r"\bcustomer\w*\b", r"\buser\w*\b", r"\bpassenger\w*\b", r"\bcontroller\w*\b", r"\boperator\w*\b"],
     "manager": [r"\bmanager\w*\b", r"\bsupervisor\w*\b", r"\bapprover\w*\b", r"\blead\w*\b", r"\bhead\b", r"\bdirector\w*\b", r"\bphysician\w*\b", r"\bdoctor\w*\b", r"\bflight\s+director\b", r"\bdispatcher\w*\b"],
     "finance": [r"\bfinance\b", r"\baccountant\w*\b", r"\bbursar\b", r"\bauditor\w*\b", r"\bcashier\w*\b", r"\bcompliance\b"],
     "admin": [r"\badmin\w*\b", r"\bsysadmin\b", r"\bhelpdesk\b"],
@@ -309,13 +311,19 @@ def evaluate_candidate_relevance_gate(
     if act_score <= 0.10 and not shared_intents:
         return False, f"Relevance Gate Rejected: {act_reason}"
 
-    # 4. Entity check: reject if entities have 0 overlap and no shared intents and not high semantic
+    # 4. Specialized capability mismatch (e.g. detect_dup vs generic capture, history vs dispatch)
+    src_spec = actions_a & SPECIALIZED_CAPABILITIES
+    tgt_spec = actions_b & SPECIALIZED_CAPABILITIES
+    if src_spec and not (src_spec & tgt_spec) and not shared_intents:
+        return False, f"Relevance Gate Rejected: Specialized capability [{', '.join(src_spec)}] missing in target"
+
+    # 5. Entity and Action joint check: reject if entities are disjoint and actions differ without shared intent
     ent_score, ent_reason = evaluate_entity_alignment(source_text, target_text)
     sem = semantic_sim if semantic_sim is not None else lexical_sim
-    if ent_score <= 0.10 and not shared_intents and sem < 0.60:
-        return False, "Relevance Gate Rejected: Unrelated domain entities"
+    if ent_score <= 0.10 and act_score <= 0.40 and not shared_intents and sem < 0.60:
+        return False, "Relevance Gate Rejected: Disjoint domain entities and divergent actions"
 
-    # 5. NFR / Performance constraint alignment: performance NFRs must not map to purely functional stories
+    # 6. NFR / Performance constraint alignment: performance NFRs must not map to purely functional stories
     perf_keywords = {
         "latency", "response time", "throughput", "concurrent", "concurrency", "simultaneous",
         "availability", "uptime", "p95", "p99", "packets per second", "checkouts per minute",
@@ -326,7 +334,7 @@ def evaluate_candidate_relevance_gate(
     if src_perf and not tgt_perf:
         return False, "Relevance Gate Rejected: NFR performance constraint not represented in functional target"
 
-    # 6. Semantic threshold minimum
+    # 7. Semantic threshold minimum
     if sem < 0.25 and not shared_intents and lexical_sim < 0.20:
         return False, "Relevance Gate Rejected: Insufficient semantic and lexical evidence"
 
