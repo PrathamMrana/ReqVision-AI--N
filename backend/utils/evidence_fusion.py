@@ -38,7 +38,7 @@ EVIDENCE_WEIGHTS = {
 ACTION_PATTERNS = {
     "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b", r"\baccess\s+control\b", r"\bpermission\w*\b", r"\brbac\b"],
     "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b", r"\bwithdraw\w*\b"],
-    "reserve": [r"\breserv\w*\b", r"\bbook\w*\b", r"\bhold\b", r"\ballocat\w*\b", r"\bschedul\w*\b", r"\bappoint\w*\b"],
+    "reserve": [r"\breserv\w*\b", r"\bbook\w*\b", r"\bhold\b", r"\ballocat\w*\b", r"\bschedul\w*\b", r"\bappoint\w*\b", r"\bassign\w*\b", r"\bdispatch\w*\b"],
     "pay": [r"\bpay\w*\b", r"\bcheckout\b", r"\bcharg\w*\b", r"\bbill\w*\b", r"\bremit\w*\b", r"\bsettle\s+invoice\b"],
     "refund": [r"\brefund\w*\b", r"\breimburs\w*\b", r"\brevers\w*\s+payment\b", r"\bcredit\s+back\b", r"\breturn\s+funds\b"],
     "reconcile": [r"\breconcil\w*\b", r"\bmatch\s+settlement\b", r"\bcompar\w*\s+files\b", r"\baudit\s+ledger\b", r"\bbalance\s+records\b", r"\bcross-?check\b"],
@@ -93,6 +93,7 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"track"}, {"refund"}),         # Telemetry tracking != Refund
     ({"track"}, {"auth"}),           # Telemetry tracking != Authentication
     ({"track"}, {"reconcile"}),      # Telemetry tracking != Reconciliation
+    ({"track"}, {"reserve"}),        # Telemetry tracking != Dispatch assignment/reservation
 ]
 
 
