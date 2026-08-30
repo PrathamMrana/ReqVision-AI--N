@@ -203,13 +203,15 @@ def run_all_34_adversarial_tests():
     all_passed &= passed
 
     # ── PRINCIPLE 13: EXACT CAPABILITY ───────────────────────────────────────
-    print(f"\n{MINI}\nPRINCIPLE 13 — Exact Capability Match")
-    src = "The system shall calculate automated vehicle damage repair cost estimates based on insurance policy coverage limits."
-    tgt = "The estimation engine shall compute projected claim payout amounts by applying deductible schedules and insurance policy limits."
+    print(f"\n{MINI}\nPRINCIPLE 13 — Exact Capability Match (different vocabulary, identical capability)")
+    src = "The system shall calculate automated vehicle damage repair cost estimates using labor rates and component pricing."
+    tgt = "The estimation module shall compute vehicle repair expenses by multiplying technician labor hours and replacement part prices."
     sim = engine.compute_semantic_similarity(src, tgt)
     is_rel, _ = evaluate_candidate_relevance_gate(src, tgt, sim, 0.50, set())
-    passed = check("Semantic similarity > 0.55 for exact capability match", sim is not None and sim > 0.55, f"Got: {sim:.4f}")
-    passed &= check("Exact capability match passes Relevance Gate", is_rel)
+    act_score, _ = evaluate_action_alignment(src, tgt)
+    passed = check("Semantic similarity > 0.60 for exact capability match", sim is not None and sim > 0.60, f"Got: {sim:.4f}")
+    passed &= check("Passes Relevance Gate", is_rel)
+    passed &= check("Action alignment confirmed (calculate == compute)", act_score >= 0.80)
     all_passed &= passed
 
     # ── PRINCIPLE 14: QUANTITATIVE CHANGE ────────────────────────────────────
