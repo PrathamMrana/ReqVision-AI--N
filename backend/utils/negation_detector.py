@@ -21,47 +21,34 @@ Rules for numeric comparison:
 import re
 from typing import Tuple, List, Dict
 
-# Explicit prohibition patterns (capability is forbidden / disabled)
-PROHIBITION_PATTERNS = [
-    r'\bmust\s+not\b',
-    r'\bshall\s+not\b',
-    r'\bshould\s+not\b',
-    r'\bwill\s+not\b',
-    r'\bcannot\b',
-    r'\bcan\s+not\b',
-    r'\bnot\s+allowed\b',
-    r'\bnot\s+permitted\b',
-    r'\bprohibited\b',
-    r'\bforbidden\b',
+# Explicit policy prohibition patterns (the feature/access itself is forbidden by policy)
+POLICY_PROHIBITION_PATTERNS = [
+    r'\b(?:is|are|shall\s+be|must\s+be)\s+(?:strictly\s+)?(?:prohibited|forbidden|disallowed|not\s+permitted|not\s+allowed)\b',
+    r'\b(?:must\s+not|shall\s+not|should\s+not|may\s+not|cannot|can\s+not)\s+(?:be\s+allowed|be\s+permitted|access|use|perform|execute|checkout|login|authenticate)\b',
+    r'\bno\s+(?:guest|anonymous|unauthenticated|unauthorized)\s+.*?\b(?:allowed|permitted|access|checkout)\b',
+    r'\bprohibit\w*\s+.*?\b(?:guest|anonymous|unauthorized|reversible|plaintext|unencrypted)\b',
+    r'\b(?:strictly\s+)?forbidden\b',
     r'\bdisallowed\b',
-    r'\bdisabled\b',
-    r'\bprevented\b',
-    r'\bblocked\b',
-    r'\bno\s+\w+\s+(?:is|are|shall|must)\b',
-    r'\bprohibit(?:s|ed|ing)?\b',
+    r'\bnot\s+(?:permitted|allowed)\b',
 ]
 
-# Explicit permission / enablement patterns (capability is allowed / supported)
-PERMISSION_PATTERNS = [
-    r'\bmay\b',
-    r'\bcan\b',
-    r'\ballow(?:s|ed)?\b',
-    r'\bpermitted\b',
-    r'\benabled\b',
-    r'\bsupported\b',
-    r'\bmandatory\b',
-    r'\brequired\b',
-    r'\bmust\b',
-    r'\bshall\b',
-    r'\bwithout\s+(?:logging|authenticating|credentials|mfa|2fa|login)\b',
+# Explicit policy permission patterns (access/feature is explicitly permitted without standard constraints)
+POLICY_PERMISSION_PATTERNS = [
+    r'\bwithout\s+(?:logging|authenticating|credentials|mfa|2fa|login|auth)\b',
+    r'\bguest\s+checkout\s+allowed\b',
+    r'\banonymous\s+access\s+(?:is\s+)?allowed\b',
+    r'\bmay\s+(?:check\s*out|access|view|browse|purchase)\s+without\b',
+    r'\ballow(?:s|ed)?\s+.*?\bwithout\s+(?:login|auth|credentials)\b',
 ]
 
 # Mutually exclusive concept pairs
 EXCLUSIVE_PAIRS = [
-    (r'\bwithout\s+(?:logging|login|auth)\b|\bguest\s+checkout\s+allowed\b', r'\bprohibit\w*\b|\bno\s+guest\b', 'Guest access allowed vs prohibited'),
+    (r'\bwithout\s+(?:logging|login|auth)\b|\bguest\s+checkout\s+allowed\b|\bguests?\s+may\s+check\s*out\b', r'\bprohibit\w*\b|\bno\s+guest\b|\bguest\s+.*?\bprohibited\b', 'Guest access allowed vs prohibited'),
     (r'\bpassword(?:\s+only)?\b', r'\bmfa\b|\b2fa\b|\bmulti.factor\b', 'Password-only vs MFA requirement'),
-    (r'\breversible\s+(?:des\s+|caesar\s+)?(?:encrypt\w*|storage|password)\b', r'\bsalted\s+(?:pbkdf2|bcrypt|argon2id|hash)\b|\breversible\s+.*?\b(?:prohibited|forbidden)\b|\bone-way\s+hash\b', 'Reversible credential encryption vs Salted one-way cryptographic hashing'),
-    (r'\bencrypt(?:ed|ion)?\b', r'\bunencrypt(?:ed|ion)?\b|\bno\s+encrypt\b|\bplaintext\b|\bcleartext\b', 'Encrypted vs unencrypted / plaintext'),
+    (r'\brequired\s+.*?\b(?:multi-?factor|mfa|2fa)\b|\bmandatory\s+(?:mfa|2fa|multi-?factor)\b', r'\b(?:multi-?factor|mfa|2fa)\s+.*?\b(?:prohibited|disabled|forbidden)\b', 'MFA Required vs Prohibited'),
+    (r'\b(?:is|are|shall\s+be)\s+enabled\b|\benabled\s+by\s+default\b', r'\b(?:is|are)\s+disabled\b|\bdisabled\s+and\b', 'Enabled vs Disabled policy conflict'),
+    (r'\breversible\s+(?:des\s+|caesar\s+)?(?:encrypt\w*|storage|password|cipher)\b', r'\bsalted\s+(?:pbkdf2|bcrypt|argon2id|hash)\b|\breversible\s+.*?\b(?:prohibited|forbidden)\b|\bone-way\s+hash\b', 'Reversible credential encryption vs Salted one-way cryptographic hashing'),
+    (r'\bstore\w*\s+in\s+plaintext\b|\bplaintext\s+(?:storage|records?|passwords?|credentials?)\b|\bunencrypted\s+storage\b', r'\bencrypt\w*\s+all\b|\bencrypted\s+at\s+rest\b', 'Plaintext vs Encrypted storage'),
     (r'\brequired\b|\bmandatory\b', r'\boptional\b|\bvoluntary\b', 'Required/Mandatory vs Optional'),
 ]
 
@@ -87,21 +74,70 @@ def _stem(word: str) -> str:
     return w[:4] if len(w) >= 4 else w
 
 
-def is_prohibition(text: str) -> bool:
-    """Returns True if the text contains an explicit prohibition statement."""
+def is_defensive_system_behavior(text: str) -> bool:
+    """
+    Returns True if the text describes defensive system behavior:
+    preventing, blocking, rejecting, filtering, denying, or discarding
+    invalid, incompatible, unauthorized, unsafe, duplicate, or out-of-bounds states/inputs.
+    """
     t = text.lower()
-    return any(re.search(p, t) for p in PROHIBITION_PATTERNS)
+    
+    # Defensive action verbs
+    has_defensive_action = bool(re.search(
+        r'\b(?:prevent|block|reject|deny|filter|flag|discard|suppress|guard|stop|disallow|intercept|safeguard)\w*\b',
+        t
+    ))
+    
+    # Violation / constraint conditions
+    has_violation_condition = bool(re.search(
+        r'\b(?:invalid|unauthorized|duplicate|expired|malformed|corrupted|tampered|unauthenticated|'
+        r'un-?approved|illegal|incompatible|unsafe|conflict\w*|collision|error|over-?limit|'
+        r'exceed\w*|outside\b.{0,15}\brange|breach|abnormal|hazard|defect|out\s+of\s+range)\b',
+        t
+    ))
+    
+    # Context-scoped constraint enforcement (e.g. "before a schedule is committed", "unless authorized")
+    has_scoped_guard = bool(re.search(
+        r'\b(?:unless|except|before\s+.*?\bcommitted|exceed\w*\s+limits?|pressure\s+limits?|without\s+authorization)\b',
+        t
+    ))
+    
+    return has_defensive_action and (has_violation_condition or has_scoped_guard)
 
 
-def is_permission(text: str) -> bool:
-    """Returns True if the text contains an explicit permission statement."""
+def is_defensive_validation(text: str) -> bool:
+    """Legacy alias for is_defensive_system_behavior."""
+    return is_defensive_system_behavior(text)
+
+
+def extract_policy_polarity(text: str) -> str:
+    """
+    Classifies the policy stance of a requirement into:
+      - 'PROHIBIT' (explicit policy forbidding an action/feature)
+      - 'ALLOW'    (explicit policy allowing an unconstrained action/feature)
+      - 'NEUTRAL'  (standard affirmative functional requirement)
+    """
     t = text.lower()
-    return any(re.search(p, t) for p in PERMISSION_PATTERNS)
+    
+    # If the sentence is defensive system behavior (e.g. "block invalid input", "prevent incompatible schedules"),
+    # it is an affirmative engineering defense, not a policy prohibition against the capability
+    if is_defensive_system_behavior(text):
+        return 'NEUTRAL'
+        
+    for p in POLICY_PROHIBITION_PATTERNS:
+        if re.search(p, t):
+            return 'PROHIBIT'
+            
+    for p in POLICY_PERMISSION_PATTERNS:
+        if re.search(p, t):
+            return 'ALLOW'
+            
+    return 'NEUTRAL'
 
 
 def detect_negation_polarity(text: str) -> bool:
-    """Returns True if the text contains an explicit prohibition pattern."""
-    return is_prohibition(text)
+    """Returns True if the text contains an explicit policy prohibition pattern."""
+    return extract_policy_polarity(text) == 'PROHIBIT'
 
 
 def has_negation(text: str) -> bool:
@@ -146,46 +182,50 @@ def extract_numeric_constraints(text: str) -> List[Dict]:
     return constraints
 
 
-def is_defensive_validation(text: str) -> bool:
-    """Returns True if the text describes validation/blocking of invalid/unauthorized/duplicate inputs."""
-    t = text.lower()
-    return bool(re.search(r'\b(?:reject|block|prevent|deny|filter|flag)\w*\s+.*?\b(?:invalid|unauthorized|duplicate|expired|malformed|corrupted|tampered|unauthenticated|un-?approved|illegal)\b|\b(?:invalid|unauthorized|duplicate|expired|malformed|corrupted|tampered|unauthenticated)\s+.*?\b(?:reject|block|prevent|deny|filter|flag)\w*\b', t))
-
-
 def check_polarity_conflict(text_a: str, text_b: str) -> Tuple[bool, str]:
     """
     Checks if two texts describe contradictory policies or polarities.
     Returns (True, reason) if polarity conflict is detected, else (False, '').
+    
+    A polarity conflict requires:
+    1. Genuine policy contradiction (ALLOW vs PROHIBIT) on a shared substantive capability.
+    2. OR explicit architectural mutual exclusion (e.g. reversible cipher vs one-way hash).
+    
+    Defensive system behavior (e.g. prevent incompatible vs block unsafe) is NOT a conflict.
     """
     ta = text_a.lower()
     tb = text_b.lower()
 
-    # Defensive security validation (e.g. reject invalid vs block invalid, or prevent duplicate vs block duplicate)
-    # is a normal security capability, not a contradiction
-    if is_defensive_validation(ta) and is_defensive_validation(tb):
+    # 1. Defensive system actions (e.g. prevent incompatible vs block unsafe, reject invalid vs block invalid)
+    # represent positive implementation alignment, NEVER a polarity conflict
+    if is_defensive_system_behavior(text_a) or is_defensive_system_behavior(text_b):
         return False, ""
 
-    # 1. Check explicit mutual exclusion pairs
+    # 2. Check explicit mutual exclusion pairs (e.g. reversible vs one-way salted hash)
     for pattern_a, pattern_b, reason in EXCLUSIVE_PAIRS:
-        a_in_ta = bool(re.search(pattern_a, ta))
+        # If pattern_a checks for plaintext/unencrypted, but the text prohibits plaintext, it is NOT an endorsement of plaintext
+        if "plaintext" in pattern_a:
+            a_in_ta = bool(re.search(pattern_a, ta)) and not bool(re.search(r'\b(?:prohibit|forbidden|must\s+not|shall\s+not)\w*\b', ta))
+            a_in_tb = bool(re.search(pattern_a, tb)) and not bool(re.search(r'\b(?:prohibit|forbidden|must\s+not|shall\s+not)\w*\b', tb))
+        else:
+            a_in_ta = bool(re.search(pattern_a, ta))
+            a_in_tb = bool(re.search(pattern_a, tb))
+
         b_in_tb = bool(re.search(pattern_b, tb))
-        a_in_tb = bool(re.search(pattern_a, tb))
         b_in_ta = bool(re.search(pattern_b, ta))
 
         if (a_in_ta and b_in_tb) or (a_in_tb and b_in_ta):
             return True, f"Polarity conflict: {reason}"
 
-    # 2. Check Prohibition vs Permission on shared concept
-    prohib_a = is_prohibition(ta)
-    prohib_b = is_prohibition(tb)
-    perm_a = is_permission(ta)
-    perm_b = is_permission(tb)
+    # 3. Check Policy Polarity (ALLOW vs PROHIBIT on shared capability)
+    pol_a = extract_policy_polarity(text_a)
+    pol_b = extract_policy_polarity(text_b)
 
-    if (prohib_a and perm_b and not prohib_b) or (prohib_b and perm_a and not prohib_a):
+    if (pol_a == 'PROHIBIT' and pol_b == 'ALLOW') or (pol_a == 'ALLOW' and pol_b == 'PROHIBIT'):
         stopwords = {
             'this', 'that', 'with', 'from', 'into', 'when', 'then', 'will',
             'shall', 'must', 'should', 'have', 'been', 'only', 'which', 'where',
-            'system', 'platform', 'user', 'service', 'may', 'can'
+            'system', 'platform', 'user', 'service', 'may', 'can', 'allow', 'allowed'
         }
         tokens_a = [w for w in re.findall(r'\b[a-z]{3,}\b', ta) if w not in stopwords]
         tokens_b = [w for w in re.findall(r'\b[a-z]{3,}\b', tb) if w not in stopwords]
