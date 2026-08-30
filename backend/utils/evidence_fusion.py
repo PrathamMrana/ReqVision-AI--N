@@ -88,6 +88,11 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"cancel"}, {"auth"}),          # Cancellation != Access control
     ({"capture"}, {"detect_dup"}),   # Receipt capture/upload != Duplicate fraud detection
     ({"auth"}, {"detect_dup"}),      # Access control != Duplicate detection
+    ({"track"}, {"estimate"}),       # Telemetry tracking != Calculation/estimation
+    ({"track"}, {"pay"}),            # Telemetry tracking != Payment
+    ({"track"}, {"refund"}),         # Telemetry tracking != Refund
+    ({"track"}, {"auth"}),           # Telemetry tracking != Authentication
+    ({"track"}, {"reconcile"}),      # Telemetry tracking != Reconciliation
 ]
 
 
@@ -116,7 +121,7 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
 
     return 0.40, f"Different actions: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
-# ── Generic Filler Stopwords ──────────────────────────────────────────────────
+# ── Generic Filler Stopwords & Function Words ─────────────────────────────────
 GENERIC_BOILERPLATE = {
     "system", "platform", "user", "users", "service", "services", "application",
     "feature", "module", "component", "endpoint", "shall", "must", "should",
@@ -124,7 +129,12 @@ GENERIC_BOILERPLATE = {
     "want", "wants", "order", "view", "views", "data", "information", "details",
     "support", "supports", "supported", "implement", "implements", "implemented",
     "verify", "verifies", "verified", "test", "tests", "tested", "scenario", "scenarios",
-    "requirement", "specification", "document", "item", "process", "interface", "method"
+    "requirement", "specification", "document", "item", "process", "interface", "method",
+    "update", "updates", "updated", "create", "creates", "created", "delete", "deletes", "deleted",
+    "real", "time", "include", "includes", "included", "ensure", "ensures", "ensured",
+    "the", "and", "for", "with", "from", "that", "this", "per", "via", "all", "any",
+    "can", "may", "not", "but", "out", "into", "onto", "each", "both", "such", "than",
+    "then", "when", "what", "which", "who", "whom", "whose", "how", "where", "why"
 }
 
 
@@ -384,12 +394,12 @@ def rank_and_disambiguate_candidates(
         
         # Ambiguity check
         if score_margin < ambiguity_margin and top["composite_score"] >= min_match_threshold:
-            if top.get("action_score", 0) <= second.get("action_score", 0) and top.get("entity_score", 0) <= second.get("entity_score", 0):
-                top["is_ambiguous"] = True
-                top["status"] = "PARTIAL"
-                top["confidence"] = "Medium"
-                top["evidence"] += f" | Ambiguous match (close candidate score margin: {score_margin:.3f})"
-                return [top]
+            top["is_ambiguous"] = True
+            top["disambiguated_status"] = "PARTIAL"
+            top["status"] = "PARTIAL"
+            top["confidence"] = "Medium"
+            top["evidence"] = top.get("evidence", "") + f" | Ambiguous match (close candidate score margin: {score_margin:.3f})"
+            return [top]
 
     top["score_margin"] = 1.0 if len(sorted_cands) == 1 else round(top["composite_score"] - sorted_cands[1]["composite_score"], 4)
     return [top]
