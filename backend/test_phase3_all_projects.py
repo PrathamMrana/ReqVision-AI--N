@@ -28,6 +28,7 @@ DOMAINS = [
     ("EduPay", os.path.join(os.path.dirname(__file__), "tests", "edupay_docs")),
     ("FoodFlow (5th Domain)", os.path.join(os.path.dirname(__file__), "tests", "foodflow_docs")),
     ("TravelOps (6th Domain)", os.path.join(os.path.dirname(__file__), "tests", "travelops_docs")),
+    ("InsureFlow (Blind Dataset)", os.path.join(os.path.dirname(__file__), "tests", "insureflow_docs")),
     ("AeroLogix (7th Unseen Domain)", os.path.join(os.path.dirname(__file__), "tests", "aerologix_docs")),
 ]
 

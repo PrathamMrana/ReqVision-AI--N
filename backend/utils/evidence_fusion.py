@@ -275,7 +275,14 @@ def evaluate_candidate_relevance_gate(
     if ent_score <= 0.10 and not shared_intents and sem < 0.60:
         return False, "Relevance Gate Rejected: Unrelated domain entities"
 
-    # 5. Semantic threshold minimum
+    # 5. NFR / Performance constraint alignment: performance NFRs must not map to purely functional stories
+    perf_keywords = {"latency", "response time", "throughput", "concurrent", "availability", "uptime", "p95", "p99", "packets per second", "checkouts per minute"}
+    src_perf = any(kw in source_text.lower() for kw in perf_keywords)
+    tgt_perf = any(kw in target_text.lower() for kw in (perf_keywords | {"scale", "scaling", "autoscaler", "cache", "redis", "load balanc", "rate limit", "partition", "kafka", "distributed", "traffic"}))
+    if src_perf and not tgt_perf and (semantic_sim or 0) < 0.65:
+        return False, "Relevance Gate Rejected: NFR performance constraint not represented in functional target"
+
+    # 6. Semantic threshold minimum
     if sem < 0.25 and not shared_intents and lexical_sim < 0.20:
         return False, "Relevance Gate Rejected: Insufficient semantic and lexical evidence"
 
