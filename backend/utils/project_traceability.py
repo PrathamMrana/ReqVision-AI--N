@@ -359,10 +359,35 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         polarity_conflict, polarity_reason = check_polarity_conflict(source_art["text"], cand["text"])
         numeric_result, numeric_reason = check_numeric_conflict(source_art["text"], cand["text"])
 
-        # ── 6. Change Request AFFECTS: skip contradictory spec targets ─────────
+        # ── 6. Change Request AFFECTS & Meeting Minutes ──────────────────────
         has_conflict, conflict_reason = check_explainable_conflict(source_art["text"], cand["text"])
-        if relationship_type == "AFFECTS" and (has_conflict or polarity_conflict):
-            continue
+        if relationship_type == "AFFECTS":
+            # Change requests modifying or reversing requirements legitimately affect those targets
+            if has_conflict or polarity_conflict or has_id_ref or hybrid >= 0.35:
+                status_label = "MATCHED" if not polarity_conflict else "MATCHED"
+                matches_found.append({
+                    "source_document": source_art["document_name"],
+                    "source_type": source_art["document_type"],
+                    "source_artifact_type": source_art["artifact_type"],
+                    "source_artifact": source_art["artifact_id"],
+                    "source_text": source_art["text"],
+                    "target_document": cand["document_name"],
+                    "target_type": cand["document_type"],
+                    "target_artifact_type": cand["artifact_type"],
+                    "target_artifact": cand["artifact_id"],
+                    "target_text": cand["text"],
+                    "relationship": relationship_type,
+                    "status": status_label,
+                    "similarity": max(hybrid, 0.50),
+                    "semantic_similarity": sem_score,
+                    "lexical_similarity": round(lex_score, 4),
+                    "hybrid_score": max(hybrid, 0.50),
+                    "intent_score": round(intent_val, 4),
+                    "semantic_enabled": _sem_available,
+                    "confidence": "High" if has_id_ref else "Medium",
+                    "evidence": f"Change Request impact: {conflict_reason or polarity_reason or 'Functional modification'} (Hybrid: {hybrid:.2f})"
+                })
+                continue
 
         # ── 7. Emit CONFLICT records (ONLY for confirmed relevant candidates) ─
         # Rule-based conflict (e.g., reversible password vs one-way hash)

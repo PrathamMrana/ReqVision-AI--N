@@ -36,29 +36,30 @@ EVIDENCE_WEIGHTS = {
 
 # ── Generic Action Patterns & Specialized Capability Families ─────────────────
 ACTION_PATTERNS = {
-    "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b", r"\baccess\s+control\b", r"\bpermission\w*\b", r"\brbac\b"],
+    "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b", r"\baccess\s+control\b", r"\bpermission\w*\b", r"\brbac\b", r"\bpassword\b", r"\bcredential\w*\b", r"\btoken\w*\b", r"\bsmartcard\w*\b", r"\bbiometric\b"],
     "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b", r"\bwithdraw\w*\b"],
-    "reserve": [r"\breserv\w*\b", r"\bbook\w*\b", r"\bhold\b", r"\ballocat\w*\b", r"\bschedul\w*\b", r"\bappoint\w*\b", r"\bassign\w*\b", r"\bdispatch\w*\b"],
+    "emergency_stop": [r"\bemergency\b", r"\bshutdown\b", r"\bshut\s*off\b", r"\bhalt\b", r"\bsafe[-_]?off\b", r"\bdepressuriz\w*\b", r"\bdisarm\b", r"\bkill\s+switch\b", r"\bfail-?safe\b", r"\brtb\b", r"\breturn-?to-?base\b"],
+    "reserve": [r"\breserv\w*\b", r"\bbook\w*\b", r"\bhold\b", r"\ballocat\w*\b", r"\bappoint\w*\b", r"\bassign\w*\b", r"\bdispatch\w*\b", r"\bopen\b", r"\bactuat\w*\b"],
     "pay": [r"\bpay\w*\b", r"\bcheckout\b", r"\bcharg\w*\b", r"\bbill\w*\b", r"\bremit\w*\b", r"\bsettle\s+invoice\b"],
     "refund": [r"\brefund\w*\b", r"\breimburs\w*\b", r"\brevers\w*\s+payment\b", r"\bcredit\s+back\b", r"\breturn\s+funds\b"],
     "reconcile": [r"\breconcil\w*\b", r"\bmatch\s+settlement\b", r"\bcompar\w*\s+files\b", r"\baudit\s+ledger\b", r"\bbalance\s+records\b", r"\bcross-?check\b"],
-    "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bdispatch\w*\b", r"\bpush\s+notification\b", r"\bmessage\w*\b"],
+    "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bpush\s+notification\b", r"\bmessage\w*\b", r"\bwarn\w*\b"],
     "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b", r"\bdiscover\w*\b"],
-    "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\barchiv\w*\b", r"\bdump\b", r"\bgenerate\s+report\b"],
+    "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\bdump\b", r"\bgenerate\s+report\b"],
     "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b"],
-    "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b"],
+    "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b", r"\bwaveform\b", r"\bstream\w*\b"],
     "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b"],
-    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcompute\b"],
-    "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b"],
-    "detect_dup": [r"\bdetect\w*\s+duplicat\w*\b", r"\bprevent\w*\s+duplicat\w*\b", r"\bduplicat\w*\s+check\w*\b", r"\bflag\w*\s+duplicat\w*\b", r"\bdedup\w*\b", r"\bduplicate\s+receipt\w*\b", r"\bduplicate\s+warning\b", r"\bduplicate\s+claim\w*\b", r"\bduplicate\s+image\w*\b"],
+    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcompute\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b"],
+    "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b", r"\bflir\b", r"\bedf\b"],
+    "detect_dup": [r"\bdetect\w*\s+duplicat\w*\b", r"\bprevent\w*\s+duplicat\w*\b", r"\bblock\w*\s+duplicat\w*\b", r"\bdiscard\w*\s+duplicat\w*\b", r"\bduplicat\w*\s+check\w*\b", r"\bflag\w*\s+duplicat\w*\b", r"\bdedup\w*\b", r"\bduplicate\s+receipt\w*\b", r"\bduplicate\s+warning\b", r"\bduplicate\s+claim\w*\b", r"\bduplicate\s+image\w*\b", r"\bduplicate\s+packet\w*\b", r"\bduplicate\s+sensor\w*\b", r"\bduplicate\s+telemetry\w*\b", r"\bduplicate\s+waypoint\w*\b", r"\bduplicate\s+flight\w*\b"],
     "prevent_conflict": [r"\boverlapping\b", r"\bdouble-?book\w*\b", r"\bconflict\w*\s+assignment\w*\b", r"\bcollision\b"],
-    "history": [r"\bhistory\b", r"\bhistorical\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\brepair\s+history\b", r"\bmaintenance\s+history\b"],
-    "fault_report": [r"\bfault\w*\b", r"\bbreakdown\w*\b", r"\bdefect\w*\b", r"\bmalfunction\w*\b"],
+    "history": [r"\bhistory\b", r"\bhistorical\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\brepair\s+history\b", r"\bmaintenance\s+history\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b"],
+    "fault_report": [r"\bfault\w*\b", r"\bbreakdown\w*\b", r"\bdefect\w*\b", r"\bmalfunction\w*\b", r"\badverse\s+event\b", r"\bhazard\s+report\b"],
     "emergency_contact": [r"\bemergency\s+contact\w*\b", r"\bnext-?of-?kin\b"],
 }
 
 # Specialized capabilities that must be mutually aligned
-SPECIALIZED_CAPABILITIES = {"detect_dup", "prevent_conflict", "history", "fault_report", "emergency_contact"}
+SPECIALIZED_CAPABILITIES = {"detect_dup", "prevent_conflict", "history", "fault_report", "emergency_contact", "emergency_stop"}
 
 # ── Generic Actor / Role Patterns ─────────────────────────────────────────────
 ACTOR_PATTERNS = {
@@ -273,19 +274,22 @@ def evaluate_candidate_relevance_gate(
     src_low = source_text.lower()
     tgt_low = target_text.lower()
 
-    # 1. Check for administrative / physical hardware procurement without software realization
+    # 1. Check for administrative / physical hardware procurement or obsolete analog media without software realization
     hardware_procurement_actions = ["procure", "purchase", "install in", "replace physical", "order 30", "order 25", "buy", "physical replacement"]
     hardware_physical_objects = [
         "projector", "screen", "whiteboard", "chair", "desk", "furniture",
         "charger", "charging station", "espresso", "coffee", "shoe cleaner", "air purifier",
         "air conditioner", "hvac", "vending machine", "microwave", "refrigerator", "cooler",
-        "breakroom", "parking lot", "standing desk"
+        "breakroom", "parking lot", "standing desk", "lunch menu", "meal specials", "hot lunch"
     ]
-    is_physical_procurement = any(obj in src_low for obj in hardware_physical_objects) and (
+    obsolete_analog_media = ["microfiche", "microfilm", "35mm film", "punch card", "floppy disk", "magnetic tape reel"]
+
+    is_physical_procurement = (any(obj in src_low for obj in hardware_physical_objects) and (
         any(act in src_low for act in hardware_procurement_actions) or not any(sw in src_low for sw in ["software", "api", "app", "service", "module", "endpoint", "driver", "calibrate", "calibration", "protocol", "portal", "command", "telemetry"])
-    )
+    )) or (any(med in src_low for med in obsolete_analog_media) and not any(med in tgt_low for med in obsolete_analog_media))
+
     if is_physical_procurement:
-        return False, "Administrative / physical hardware procurement excluded from software traceability"
+        return False, "Administrative, physical hardware, or obsolete analog media excluded from software traceability"
 
     # 2. Check for unresolved review statements
     unresolved_terms = [
@@ -348,12 +352,14 @@ def detect_missing_conditions(source_text: str, target_text: str) -> Tuple[bool,
         if re.search(pat, src_lower) and not re.search(pat, tgt_lower):
             return True, f"Source specifies secondary condition not covered in target ({desc})"
 
-    # Generic check on action set difference
-    src_actions = extract_actions(source_text)
-    tgt_actions = extract_actions(target_text)
-    if len(src_actions) >= 2 and len(tgt_actions) == 1 and tgt_actions.issubset(src_actions):
+    # Generic check on coordinate action conjunctions (e.g. "submit expenses AND upload receipts")
+    if re.search(r'\b(?:and|as well as)\s+(?:upload|attach|export|download|scan|notify|alert|dispatch)\b', src_lower):
+        src_actions = extract_actions(source_text)
+        tgt_actions = extract_actions(target_text)
         missing = src_actions - tgt_actions
-        return True, f"Source has compound actions not covered in target: [{', '.join(missing)}]"
+        # If the missing action is a distinct secondary functional capability (not specialized dup/emergency)
+        if missing and any(m in ["capture", "export", "notify"] for m in missing):
+            return True, f"Source has compound actions not covered in target: [{', '.join(missing)}]"
 
     return False, ""
 
