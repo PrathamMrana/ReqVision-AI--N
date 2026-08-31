@@ -47,8 +47,8 @@ EXCLUSIVE_PAIRS = [
     (r'\bpassword(?:\s+only)?\b', r'\bmfa\b|\b2fa\b|\bmulti.factor\b', 'Password-only vs MFA requirement'),
     (r'\brequired\s+.*?\b(?:multi-?factor|mfa|2fa)\b|\bmandatory\s+(?:mfa|2fa|multi-?factor)\b', r'\b(?:multi-?factor|mfa|2fa)\s+.*?\b(?:prohibited|disabled|forbidden)\b', 'MFA Required vs Prohibited'),
     (r'\b(?:is|are|shall\s+be)\s+enabled\b|\benabled\s+by\s+default\b', r'\b(?:is|are)\s+disabled\b|\bdisabled\s+and\b', 'Enabled vs Disabled policy conflict'),
-    (r'\breversible\s+(?:des\s+|caesar\s+)?(?:encrypt\w*|storage|password|cipher)\b', r'\bsalted\s+(?:pbkdf2|bcrypt|argon2id|hash)\b|\breversible\s+.*?\b(?:prohibited|forbidden)\b|\bone-way\s+hash\b', 'Reversible credential encryption vs Salted one-way cryptographic hashing'),
-    (r'\bstore\w*\s+in\s+plaintext\b|\bplaintext\s+(?:storage|records?|passwords?|credentials?)\b|\bunencrypted\s+storage\b', r'\bencrypt\w*\s+all\b|\bencrypted\s+at\s+rest\b', 'Plaintext vs Encrypted storage'),
+    (r'\b(?:stored?\s+(?:using|as)\s+)?reversible\s+(?:des\s+|caesar\s+)?(?:encrypt\w*|storage|password|cipher)?\b|\breversible\s+(?:storage|encryption|phrase|key)\b', r'\bsalted\s+(?:pbkdf2|bcrypt|argon2id|hash)\b|\b(?:never|must\s+not|shall\s+not|cannot|prohibit\w*|forbid\w*|disallow\w*|avoid\w*)\s+.*?\b(?:stored?\s+)?reversib\w*\b|\breversible\s+.*?\b(?:prohibited|forbidden|disallowed)\b|\bone-way\s+hash\b', 'Reversible credential encryption vs Salted one-way cryptographic hashing'),
+    (r'\bstore\w*\s+in\s+plaintext\b|\bplaintext\s+(?:storage|records?|passwords?|credentials?)\b|\bunencrypted\s+storage\b', r'\bencrypt\w*\s+all\b|\bencrypted\s+at\s+rest\b|\b(?:never|must\s+not|shall\s+not|cannot|prohibit\w*|forbid\w*)\s+.*?\bplaintext\b', 'Plaintext vs Encrypted storage'),
     (r'\brequired\b|\bmandatory\b', r'\boptional\b|\bvoluntary\b', 'Required/Mandatory vs Optional'),
 ]
 
