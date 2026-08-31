@@ -446,7 +446,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             continue
 
         # Generic polarity conflict (negation detector) — only when semantically related enough
-        if polarity_conflict and hybrid >= 0.40 and not is_extension:
+        if polarity_conflict and (hybrid >= 0.28 or (sem_score and sem_score >= 0.35) or shared_intents) and not is_extension:
             matches_found.append({
                 "source_document": source_art["document_name"],
                 "source_type": source_art["document_type"],

@@ -48,13 +48,14 @@ ACTION_PATTERNS = {
     "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\bdump\b", r"\bgenerate\s+report\b", r"\bdepreciation\b"],
     "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\s+(?:an?\s+)?(?:event|error|issue|incident|transaction|audit|fault)\b", r"\blogging\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b", r"\bfile\w*\b"],
     "delete": [r"\bdelet\w*\b", r"\bremov\w*\b", r"\beras\w*\b", r"\bpurag\w*\b", r"\bdestroy\b", r"\bpermanently\s+delete\b"],
-    "view": [r"\bdisplay\w*\b", r"\bview\w*\b", r"\bvisualiz\w*\b", r"\bshow\w*\b", r"\bpresent\w*\b", r"\brender\w*\b", r"\bdashboard\b", r"\bui\b"],
-    "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b", r"\bwaveform\b", r"\bstream\w*\b"],
+    "view": [r"\bdisplay\w*\b", r"\bview\w*\b", r"\bvisualiz\w*\b", r"\bshow\w*\b", r"\bpresent\w*\b", r"\bdashboard\b", r"\bui\b", r"\bwidget\b", r"\bmetrics\b", r"\bstatistic\w*\b"],
+    "stream": [r"\bstream\w*\b", r"\bplay\w*\b", r"\brender\w*\b", r"\bbroadcast\w*\b", r"\bfeed\w*\b", r"\btransmission\b"],
+    "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b", r"\bwaveform\b"],
     "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b", r"\bauthoriz\w*\b"],
     "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcomput\w*\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b"],
     "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b", r"\bflir\b", r"\bedf\b", r"\bimage\w*\b"],
     "detect_dup": [r"\b(?:detect|identify|find|check|recognize|block|prevent|reject|discard|filter|stop|flag|dedup)\w*\s+(?:and\s+\w+\s+)?(?:duplicate|redundant|collision|overlap)\w*\b", r"\bduplicate\s+(?:check|warning|receipt|claim|image|packet|sensor|telemetry|waypoint|flight|key|request|message|material)\w*\b", r"\bdedup\w*\b"],
-    "prevent_conflict": [r"\boverlapping\b", r"\bdouble-?book\w*\b", r"\bconflict\w*\s+assignment\w*\b", r"\bcollision\b"],
+    "prevent_conflict": [r"\boverlapping\b", r"\bdouble-?book\w*\b", r"\bconflict\w*\s+assignment\w*\b", r"\bschedule\s+collision\b"],
     "history": [r"\bhistory\b", r"\bhistorical\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\brepair\s+history\b", r"\bmaintenance\s+history\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b"],
     "fault_report": [r"\bfault\w*\b", r"\bbreakdown\w*\b", r"\bdefect\w*\b", r"\bmalfunction\w*\b", r"\badverse\s+event\b", r"\bhazard\s+report\b", r"\bfail(?:ure|ed|ing|s)?\b(?!-safe)"],
     "emergency_contact": [r"\bemergency\s+contact\w*\b", r"\bnext-?of-?kin\b"],
@@ -88,6 +89,7 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"search"}, {"delete"}),
     ({"estimate"}, {"refund"}),
     ({"estimate"}, {"view"}),           # Calculation/Digest != Dashboard/Console display
+    ({"stream"}, {"view"}),             # Media Streaming/Rendering != Observation/Metrics Dashboard
     ({"view"}, {"manage"}),             # Display/Console != Creation/Submission
     ({"view"}, {"delete"}),             # Display/Console != Permanent Deletion
     ({"view"}, {"cancel"}),             # Display/Console != Revocation/Cancellation
@@ -98,6 +100,15 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"track"}, {"reserve"}),           # Telemetry tracking != Route assignment
     ({"export"}, {"track"}),            # Reporting export != Telemetry stream
 ]
+
+
+def decompose_requirement_clauses(text: str) -> List[str]:
+    """
+    Decomposes a complex requirement string into atomic clauses based on
+    conjunctions and punctuation delimiters.
+    """
+    clauses = re.split(r'[;,]|(?:\s+and\s+)|(?:\s+as\s+well\s+as\s+)', text, flags=re.IGNORECASE)
+    return [c.strip() for c in clauses if len(c.strip()) > 10]
 
 
 def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
@@ -118,10 +129,14 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
         ("cancel" in actions_b and "cancel" not in actions_a and "reserve" in actions_a)):
         return 0.05, "Incompatible action divergence: cancellation vs reservation realization"
 
-    # 3. Check for strictly incompatible operational action pairs (e.g. export vs delete, reconcile vs refund)
-    for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
-        if (actions_a & group1 and actions_b & group2) or (actions_a & group2 and actions_b & group1):
-            return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
+    # 3. Check for strictly incompatible operational action pairs across primary non-history actions
+    primary_a = actions_a - {"history"}
+    primary_b = actions_b - {"history"}
+    if primary_a and primary_b:
+        for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
+            if (primary_a & group1 and primary_b & group2) or (primary_a & group2 and primary_b & group1):
+                if not (primary_a & primary_b):
+                    return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
     # 4. Shared actions take precedence with recall scoring
     shared = actions_a & actions_b
@@ -130,6 +145,11 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
         if recall == 1.0:
             return 1.0, f"Aligned actions on [{', '.join(shared)}]"
         return round(0.55 + 0.40 * recall, 4), f"Partially aligned actions on [{', '.join(shared)}] (Coverage: {recall:.0%})"
+
+    # 5. Strictly incompatible action pairs when NO actions are shared
+    for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
+        if (actions_a & group1 and actions_b & group2) or (actions_a & group2 and actions_b & group1):
+            return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
     return 0.40, f"Different actions: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
@@ -157,6 +177,13 @@ def extract_actions(text: str) -> Set[str]:
     for cluster_name, patterns in ACTION_PATTERNS.items():
         if any(re.search(pat, t) for pat in patterns):
             detected_clusters.add(cluster_name)
+
+    # Disambiguate observation of metrics / status widgets from actual data stream generation/capture
+    if re.search(r"\b(?:display\w*|show\w*|view\w*)\b.{0,40}\b(?:metric\w*|statistic\w*|frame\s*rate\w*|status\s*widget|resolution\s*metric)\b", t):
+        detected_clusters.discard("stream")
+        detected_clusters.discard("capture")
+        detected_clusters.add("view")
+
     return detected_clusters
 
 
