@@ -17,35 +17,24 @@ CANONICAL_ARTIFACT_TYPES = [
 
 def determine_canonical_artifact_type(art_id, doc_type):
     """
-    Determines the canonical artifact_type and document_type based on ID prefix and document type.
-    Guarantees that FS-xxx is ALWAYS FUNCTIONAL_SPECIFICATION / FRD, never USER_STORY.
+    Determines the canonical artifact_type and document_type based on ID prefix
+    and document type.
+    Prioritizes classified document layer for robust template routing, while
+    preserving semantic sub-type discriminators (NFR, DEC, MOM).
     """
+    norm_dt = normalize_document_type(doc_type)
     id_upper = art_id.upper()
     
-    if re.match(r'^BR-\d+', id_upper) or re.match(r'^OBJ-\d+', id_upper):
-        return "BRD_REQUIREMENT", "BRD"
-    if re.match(r'^NFR-\d+', id_upper):
+    # 1. Semantic sub-type overrides
+    if re.match(r'^NFR[-_]?\d+', id_upper):
         return "NON_FUNCTIONAL_REQUIREMENT", "SRS"
-    if re.match(r'^FR-\d+', id_upper) or re.match(r'^REQ-\d+', id_upper):
-        return "FUNCTIONAL_REQUIREMENT", "SRS"
-    if re.match(r'^FS-\d+', id_upper) or re.match(r'^SPEC-\d+', id_upper):
-        return "FUNCTIONAL_SPECIFICATION", "FRD"
-    if re.match(r'^US-\d+', id_upper) or re.match(r'^STORY-\d+', id_upper):
-        return "USER_STORY", "USER_STORY"
-    if re.match(r'^TC-\d+', id_upper) or re.match(r'^TEST-\d+', id_upper):
-        return "TEST_CASE", "TEST_CASE"
-    if re.match(r'^CR-\d+', id_upper):
-        return "CHANGE_REQUEST", "CHANGE_REQUEST"
-    if re.match(r'^DEC-\d+', id_upper):
+    if re.match(r'^DEC[-_]?\d+', id_upper):
         return "DECISION", "MEETING_MINUTES"
-    if re.match(r'^MOM-\d+', id_upper):
+    if re.match(r'^(?:MOM|ACT)[-_]?\d+', id_upper):
         return "ACTION_ITEM", "MEETING_MINUTES"
-    if re.match(r'^RN-\d+', id_upper):
-        return "RELEASE_NOTES", "RELEASE_NOTES"
-
-    # Fallback to document type mapping
-    norm_dt = normalize_document_type(doc_type)
-    fallback_map = {
+        
+    # 2. Classified Document Type Routing (Authoritative Layer Mapping)
+    doc_layer_map = {
         "BRD": ("BRD_REQUIREMENT", "BRD"),
         "SRS": ("FUNCTIONAL_REQUIREMENT", "SRS"),
         "FRD": ("FUNCTIONAL_SPECIFICATION", "FRD"),
@@ -55,7 +44,27 @@ def determine_canonical_artifact_type(art_id, doc_type):
         "MEETING_MINUTES": ("ACTION_ITEM", "MEETING_MINUTES"),
         "RELEASE_NOTES": ("RELEASE_NOTES", "RELEASE_NOTES")
     }
-    return fallback_map.get(norm_dt, ("UNKNOWN", norm_dt))
+    
+    if norm_dt in doc_layer_map:
+        return doc_layer_map[norm_dt]
+
+    # 3. Fallback when document type is UNKNOWN: Infer from ID prefix
+    if re.match(r'^(?:BR|BUS|OBJ|BN|OPS|RQ)[-_]?\d+', id_upper):
+        return "BRD_REQUIREMENT", "BRD"
+    if re.match(r'^(?:FR|SRS|SYS|REQ|FN)[-_]?\d+', id_upper):
+        return "FUNCTIONAL_REQUIREMENT", "SRS"
+    if re.match(r'^(?:FS|FRD|CAP|SPEC|DSG|FDD|COMP|MOD|FUNC)[-_]?\d+', id_upper):
+        return "FUNCTIONAL_SPECIFICATION", "FRD"
+    if re.match(r'^(?:US|STORY|ST|AGILE)[-_]?\d+', id_upper):
+        return "USER_STORY", "USER_STORY"
+    if re.match(r'^(?:TC|TEST|QA|VERIF|TS)[-_]?\d+', id_upper):
+        return "TEST_CASE", "TEST_CASE"
+    if re.match(r'^(?:CR|RFC|ECR|ECO|CHG)[-_]?\d+', id_upper):
+        return "CHANGE_REQUEST", "CHANGE_REQUEST"
+    if re.match(r'^(?:RN|REL|VER|PATCH)[-_]?\d+', id_upper):
+        return "RELEASE_NOTES", "RELEASE_NOTES"
+        
+    return "UNKNOWN", norm_dt if norm_dt != "UNKNOWN" else "UNKNOWN"
 
 def get_raw_chunks(text):
     """
@@ -72,7 +81,7 @@ def get_raw_chunks(text):
     
     for line in lines:
         is_header = any(re.match(hp, line, re.IGNORECASE) for hp in header_patterns)
-        has_req_tag = bool(re.search(r'\b[A-Z]{2,4}-\d+\b', line))
+        has_req_tag = bool(re.search(r'\b[A-Z]{1,6}[-_]?\d{1,5}\b', line))
         
         # If it is a header and does not have an explicit requirement identifier, drop it
         if is_header and not has_req_tag:
@@ -92,7 +101,7 @@ def extract_artifacts(document_id, document_type, text, document_name=""):
     artifacts = []
     chunks = get_raw_chunks(text)
     
-    has_explicit_ids = any(re.search(r'\b[A-Z]{2,4}-\d+\b', chunk) for chunk in chunks)
+    has_explicit_ids = any(re.search(r'\b[A-Z]{1,6}[-_]?\d{1,5}\b', chunk) for chunk in chunks)
     
     prefix_map = {
         "BRD": ("BR", "BRD_REQUIREMENT", "Business Needs"),
@@ -110,14 +119,14 @@ def extract_artifacts(document_id, document_type, text, document_name=""):
     extracted_count = 0
     for chunk in chunks:
         # Regex for ID tag at the beginning of the chunk or within the first 25 characters
-        id_match = re.search(r'\b([A-Z]{2,4}-\d+)\b', chunk[:25])
+        id_match = re.search(r'\b([A-Z]{1,6}[-_]?\d{1,5})\b', chunk[:25])
         
         if id_match:
             art_id = id_match.group(1).upper()
             art_type, art_doc_type = determine_canonical_artifact_type(art_id, norm_doc_type)
             
             # Clean up the text by removing the ID prefix if it starts with it
-            art_text = re.sub(r'^[A-Z]{2,4}-\d+[^\w]*', '', chunk).strip()
+            art_text = re.sub(r'^[A-Z]{1,6}[-_]?\d{1,5}[^\w]*', '', chunk).strip()
             if not art_text:
                 art_text = chunk
                 
@@ -151,3 +160,4 @@ def extract_artifacts(document_id, document_type, text, document_name=""):
             })
 
     return artifacts
+

@@ -52,11 +52,11 @@ ACTION_PATTERNS = {
     "stream": [r"\bstream\w*\b", r"\bplay\w*\b", r"\brender\w*\b", r"\bbroadcast\w*\b", r"\bfeed\w*\b", r"\btransmission\b"],
     "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b", r"\bwaveform\b"],
     "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b", r"\bauthoriz\w*\b"],
-    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcomput\w*\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b"],
+    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcomput\w*\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b", r"\boptimiz\w*\b", r"\bsolver\b"],
     "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b", r"\bflir\b", r"\bedf\b", r"\bimage\w*\b"],
     "detect_dup": [r"\b(?:detect|identify|find|check|recognize|block|prevent|reject|discard|filter|stop|flag|dedup)\w*\s+(?:and\s+\w+\s+)?(?:duplicate|redundant|collision|overlap)\w*\b", r"\bduplicate\s+(?:check|warning|receipt|claim|image|packet|sensor|telemetry|waypoint|flight|key|request|message|material)\w*\b", r"\bdedup\w*\b"],
     "prevent_conflict": [r"\boverlapping\b", r"\bdouble-?book\w*\b", r"\bconflict\w*\s+assignment\w*\b", r"\bschedule\s+collision\b"],
-    "history": [r"\bhistory\b", r"\bhistorical\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\brepair\s+history\b", r"\bmaintenance\s+history\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b"],
+    "history": [r"\b(?:audit|repair|maintenance|calibration|version|transaction|change)\s+history\b", r"\baudit\s+trail\b", r"\bhistory\s+log\w*\b", r"\bview\s+history\b", r"\btrack\s+history\b", r"\bhistorical\s+audit\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b"],
     "fault_report": [r"\bfault\w*\b", r"\bbreakdown\w*\b", r"\bdefect\w*\b", r"\bmalfunction\w*\b", r"\badverse\s+event\b", r"\bhazard\s+report\b", r"\bfail(?:ure|ed|ing|s)?\b(?!-safe)"],
     "emergency_contact": [r"\bemergency\s+contact\w*\b", r"\bnext-?of-?kin\b"],
 }
