@@ -38,7 +38,7 @@ EVIDENCE_WEIGHTS = {
 ACTION_PATTERNS = {
     "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b", r"\baccess\s+control\b", r"\bpermission\w*\b", r"\brbac\b", r"\bpassword\b", r"\bcredential\w*\b", r"\btoken\w*\b", r"\bsmartcard\w*\b", r"\bbiometric\b"],
     "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b", r"\bwithdraw\w*\b", r"\bhalt\w*\b", r"\bstop\w*\b", r"\bdisabl\w*\b", r"\binvalidat\w*\b", r"\bdisengag\w*\b", r"\bshut\s*down\b", r"\bshut\s*off\b"],
-    "emergency_stop": [r"\bemergency\b", r"\bsafe[-_]?off\b", r"\bdepressuriz\w*\b", r"\bdisarm\b", r"\bkill\s+switch\b", r"\bfail-?safe\b", r"\brtb\b", r"\breturn-?to-?base\b", r"\brelief\b", r"\bquench\b", r"\binterlock\b", r"\bparachute\b", r"\bballistic\b", r"\bsafety\s+(?:sub)?system\b"],
+    "emergency_stop": [r"\bemergency\b", r"\bsafe[-_]?off\b", r"\bdepressuriz\w*\b", r"\bdisarm\b", r"\bkill\s+switch\b", r"\bfail-?safe\b", r"\brtb\b", r"\breturn-?to-?base\b", r"\brelief\b", r"\bquench\b", r"\binterlock\b", r"\bparachute\b", r"\bballistic\b", r"\bsafety\s+(?:sub)?system\b", r"\bdecelerat\w*\b", r"\bcollision\s+avoidance\b"],
     "reserve": [r"\breserv\w*\b", r"\bbook\w*\b", r"\bhold\b", r"\ballocat\w*\b", r"\bappoint\w*\b", r"\bassign\w*\b", r"\bdispatch\w*\b", r"\bopen\b"],
     "pay": [r"\bpay\w*\b", r"\bcheckout\b", r"\bcharg\w*\b", r"\bbill\w*\b", r"\bremit\w*\b", r"\bsettle\s+invoice\b"],
     "refund": [r"\brefund\w*\b", r"\breimburs\w*\b", r"\brevers\w*\s+payment\b", r"\bcredit\s+back\b", r"\breturn\s+funds\b"],
@@ -46,23 +46,25 @@ ACTION_PATTERNS = {
     "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bpush\s+notification\b", r"\bmessage\w*\b", r"\bwarn\w*\b", r"\breceipt\b", r"\bconfirmation\b"],
     "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b", r"\bdiscover\w*\b"],
     "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\bdump\b", r"\bgenerate\s+report\b", r"\bdepreciation\b"],
-    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\s+(?:an?\s+)?(?:event|error|issue|incident|transaction|audit|fault)\b", r"\blogging\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b", r"\bfile\w*\b", r"\bexecut\w*\b", r"\bperform\w*\b", r"\boperat(?:e|es|ing)\b"],
+    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\s+(?:an?\s+)?(?:event|error|issue|incident|transaction|audit|fault)\b", r"\blogging\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b", r"\bfile\w*\b", r"\bexecut\w*\b", r"\bperform\w*\b", r"\boperat(?:e|es|ing)\b", r"\brotat\w*\b"],
     "delete": [r"\bdelet\w*\b", r"\bremov\w*\b", r"\beras\w*\b", r"\bpurag\w*\b", r"\bdestroy\b", r"\bpermanently\s+delete\b"],
-    "view": [r"\bdisplay\w*\b", r"\bview\w*\b", r"\bvisualiz\w*\b", r"\bshow\w*\b", r"\bpresent\w*\b", r"\bdashboard\b", r"\bui\b", r"\bwidget\b", r"\bmetrics\b", r"\bstatistic\w*\b"],
+    "view": [r"\bdisplay\w*\b", r"\bview\w*\b", r"\bvisualiz\w*\b", r"\bshow\w*\b", r"\bpresent\w*\b", r"\bdashboard\b", r"\bui\b", r"\bwidget\b", r"\bmetrics\b", r"\bstatistic\w*\b", r"\bconsole\b", r"\bscreen\b"],
     "stream": [r"\bstream\w*\b", r"\bplay\w*\b", r"\brender\w*\b", r"\bbroadcast\w*\b", r"\bfeed\w*\b", r"\btransmission\b"],
     "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b", r"\bwaveform\b"],
-    "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b", r"\bauthoriz\w*\b"],
-    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcomput\w*\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b", r"\boptimiz\w*\b", r"\bsolver\b"],
+    "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b", r"\bauthoriz\w*\b", r"\bsign[- ]?off\b"],
+    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcomput\w*\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b", r"\boptimiz\w*\b", r"\bsolver\b", r"\bsurge\s+capacity\b", r"\banalytics\b"],
     "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b", r"\bflir\b", r"\bedf\b", r"\bimage\w*\b"],
-    "detect_dup": [r"\b(?:detect|identify|find|check|recognize|block|prevent|reject|discard|filter|stop|flag|dedup)\w*\s+(?:and\s+\w+\s+)?(?:duplicate|redundant|collision|overlap)\w*\b", r"\bduplicate\s+(?:check|warning|receipt|claim|image|packet|sensor|telemetry|waypoint|flight|key|request|message|material)\w*\b", r"\bdedup\w*\b"],
+    "detect_dup": [r"\b(?:detect|identify|find|check|recognize|block|prevent|reject|discard|filter|stop|flag|dedup)\w*\s+(?:and\s+\w+\s+)?(?:duplicate|redundant|collision|overlap)\w*\b", r"\bduplicate\s+(?:check|warning|receipt|claim|image|packet|sensor|telemetry|waypoint|flight|key|request|message|material)\w*\b", r"\bdedup\w*\b", r"\bdrop\s+redundant\b"],
     "prevent_conflict": [r"\boverlapping\b", r"\bdouble-?book\w*\b", r"\bconflict\w*\s+assignment\w*\b", r"\bschedule\s+collision\b"],
-    "history": [r"\b(?:audit|repair|maintenance|calibration|version|transaction|change)\s+history\b", r"\baudit\s+trail\b", r"\bhistory\s+log\w*\b", r"\bview\s+history\b", r"\btrack\s+history\b", r"\bhistorical\s+audit\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b"],
+    "history": [r"\b(?:audit|repair|maintenance|calibration|version|transaction|change)\s+history\b", r"\baudit\s+trail\b", r"\bhistory\s+log\w*\b", r"\bview\s+history\b", r"\btrack\s+history\b", r"\bhistorical\s+audit\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b", r"\bledger\b", r"\bimmutable\b"],
+    "calibrate": [r"\bcalibrat\w*\b", r"\bzero\s+offset\b", r"\bgain\s+adjust\w*\b", r"\btun(?:e|ing)\b", r"\bsensor\s+calibrat\w*\b"],
+    "detect_violation": [r"\bdetect\w*\b.{0,30}\b(?:threshold|violation|limit|breach|surge|anomaly|hazard)\b", r"\bthreshold\s+(?:detection|monitoring|exceeded|alert)\b", r"\bbreach\s+alert\w*\b", r"\banomaly\s+detect\w*\b"],
     "fault_report": [r"\bfault\w*\b", r"\bbreakdown\w*\b", r"\bdefect\w*\b", r"\bmalfunction\w*\b", r"\badverse\s+event\b", r"\bhazard\s+report\b", r"\bfail(?:ure|ed|ing|s)?\b(?!-safe)"],
     "emergency_contact": [r"\bemergency\s+contact\w*\b", r"\bnext-?of-?kin\b"],
 }
 
 # Specialized capabilities that must be mutually aligned
-SPECIALIZED_CAPABILITIES = {"detect_dup", "prevent_conflict", "history", "fault_report", "emergency_contact", "emergency_stop"}
+SPECIALIZED_CAPABILITIES = {"detect_dup", "prevent_conflict", "history", "fault_report", "emergency_contact", "emergency_stop", "calibrate", "detect_violation"}
 
 # ── Generic Actor / Role Patterns ─────────────────────────────────────────────
 ACTOR_PATTERNS = {
@@ -88,22 +90,28 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"export"}, {"delete"}),           # Export/Archive != Permanent Deletion
     ({"search"}, {"delete"}),
     ({"estimate"}, {"refund"}),
-    ({"estimate"}, {"view"}),           # Calculation/Digest != Dashboard/Console display
+    ({"estimate"}, {"view"}),           # Calculation/Analytics != Dashboard/Console display
     ({"stream"}, {"view"}),             # Media Streaming/Rendering != Observation/Metrics Dashboard
-    ({"view"}, {"manage"}),             # Display/Console != Creation/Submission
+    ({"view"}, {"manage"}),             # Display/Console != Creation/Submission/Maintenance
     ({"view"}, {"delete"}),             # Display/Console != Permanent Deletion
     ({"view"}, {"cancel"}),             # Display/Console != Revocation/Cancellation
     ({"view"}, {"auth"}),               # Display/Console != Credential authentication
     ({"view"}, {"detect_dup"}),         # Display/Dashboard != Duplicate Detection
     ({"view"}, {"fault_report"}),       # Display/Dashboard != Fault/Defect Reporting
-    ({"approve"}, {"manage"}),          # Manager approval != employee creation/submission
-    ({"approve"}, {"fault_report"}),     # Workflow success/approval != failure alert
+    ({"view"}, {"calibrate"}),          # Display/Console != Sensor Calibration
+    ({"view"}, {"detect_violation"}),   # Operations Console != Threshold Violation Detection
+    ({"approve"}, {"manage"}),          # Manager approval != employee creation/submission/work-order
+    ({"approve"}, {"fault_report"}),    # Workflow success/approval != failure alert
     ({"approve"}, {"detect_dup"}),      # Manager approval != Duplicate prevention
-    ({"approve"}, {"history"}),          # Approval workflow != Historical audit trail
+    ({"approve"}, {"history"}),         # Approval workflow != Historical audit trail
     ({"history"}, {"estimate"}),        # Historical audit log != Sensor/Tolerance calculation
+    ({"history"}, {"calibrate"}),       # Audit History != Sensor Calibration Test
+    ({"history"}, {"manage"}),          # Historical audit log != Live execution
     ({"capture"}, {"detect_dup"}),      # Receipt capture/upload != Duplicate fraud detection
     ({"track"}, {"reserve"}),           # Telemetry tracking != Route assignment
+    ({"track"}, {"estimate"}),          # Telemetry monitoring != Reliability/Capacity analytics
     ({"export"}, {"track"}),            # Reporting export != Telemetry stream
+    ({"calibrate"}, {"manage"}),        # Sensor calibration != General repair/work order
 ]
 
 
