@@ -814,10 +814,19 @@ def analyze_project_documents_traceability(project_documents):
             })
 
     # End-to-End Traceability Chains Assembly (BRD -> SRS -> FRD -> US -> TC)
+    # Strictly built from CANONICAL traceability_relationships edges (zero re-inference)
     root_artifacts = brd_list if brd_list else srs_list if srs_list else all_artifacts
     traceability_chains = []
     top_conflicts = []
     top_unmapped = []
+
+    # Map of canonical active relationships keyed by (source_artifact, relationship_type) and source_artifact
+    canonical_rel_map = {}
+    for r in traceability_relationships:
+        if r.get("status") in ["MATCHED", "PARTIAL", "CONFLICT"] and r.get("target_artifact") != "—":
+            canonical_rel_map[(r["source_artifact"], r.get("relationship"))] = r
+            if r["source_artifact"] not in canonical_rel_map:
+                canonical_rel_map[r["source_artifact"]] = r
 
     for root_art in root_artifacts:
         chain = {
@@ -838,18 +847,18 @@ def analyze_project_documents_traceability(project_documents):
                 "name": root_art["document_name"],
                 "text": root_art["text"]
             }
-            srs_rels = find_candidate_relationships(root_art, srs_list, vectorizer, relationship_type="TRACEABLE_TO")
-            valid_srs_rel = next((r for r in srs_rels if r["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]), srs_rels[0])
-            if valid_srs_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
-                matched_srs_art = next((s for s in srs_list if s["artifact_id"] == valid_srs_rel["target_artifact"]), None)
+            rel_srs = canonical_rel_map.get((root_art["artifact_id"], "TRACEABLE_TO")) or canonical_rel_map.get(root_art["artifact_id"])
+            current_srs = None
+            if rel_srs:
+                matched_srs_art = next((s for s in srs_list if s["artifact_id"] == rel_srs["target_artifact"]), None)
                 if matched_srs_art:
                     chain["srs"] = {
                         "id": matched_srs_art["artifact_id"],
                         "name": matched_srs_art["document_name"],
                         "text": matched_srs_art["text"]
                     }
-                    chain["evidence_chain"].append(f"BRD→SRS [{valid_srs_rel['status']}]: {valid_srs_rel['evidence']}")
-            current_srs = next((s for s in srs_list if s["artifact_id"] == valid_srs_rel["target_artifact"]), None)
+                    chain["evidence_chain"].append(f"BRD→SRS [{rel_srs['status']}]: {rel_srs['evidence']}")
+                    current_srs = matched_srs_art
         else:
             current_srs = root_art
             chain["srs"] = {
@@ -861,61 +870,53 @@ def analyze_project_documents_traceability(project_documents):
         # Step 2: FRD
         current_frd = None
         if current_srs:
-            frd_rels = find_candidate_relationships(current_srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY")
-            conflict_frd_rel = next((r for r in frd_rels if r["status"] == "CONFLICT"), None)
-            valid_frd_rel = next((r for r in frd_rels if r["status"] == "MATCHED"), conflict_frd_rel or frd_rels[0])
-            
-            if conflict_frd_rel:
-                chain["evidence_chain"].append(f"SRS→FRD [CONFLICT]: {conflict_frd_rel['evidence']}")
-
-            if valid_frd_rel and valid_frd_rel["status"] in ["MATCHED", "PARTIAL"]:
-                matched_frd_art = next((f for f in frd_list if f["artifact_id"] == valid_frd_rel["target_artifact"]), None)
+            rel_frd = canonical_rel_map.get((current_srs["artifact_id"], "IMPLEMENTED_BY")) or canonical_rel_map.get(current_srs["artifact_id"])
+            if rel_frd:
+                matched_frd_art = next((f for f in frd_list if f["artifact_id"] == rel_frd["target_artifact"]), None)
                 if matched_frd_art:
                     chain["frd"] = {
                         "id": matched_frd_art["artifact_id"],
                         "name": matched_frd_art["document_name"],
                         "text": matched_frd_art["text"]
                     }
-                    chain["evidence_chain"].append(f"SRS→FRD [{valid_frd_rel['status']}]: {valid_frd_rel['evidence']}")
+                    chain["evidence_chain"].append(f"SRS→FRD [{rel_frd['status']}]: {rel_frd['evidence']}")
                     current_frd = matched_frd_art
 
         # Step 3: User Story
         current_us = None
         target_for_us = current_frd or current_srs
         if target_for_us:
-            us_rels = find_candidate_relationships(target_for_us, us_list, vectorizer, relationship_type="REALIZED_BY")
-            valid_us_rel = next((u for u in us_rels if u["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]), us_rels[0])
-            if valid_us_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
-                matched_us_art = next((u for u in us_list if u["artifact_id"] == valid_us_rel["target_artifact"]), None)
+            rel_us = canonical_rel_map.get((target_for_us["artifact_id"], "REALIZED_BY")) or canonical_rel_map.get(target_for_us["artifact_id"])
+            if rel_us:
+                matched_us_art = next((u for u in us_list if u["artifact_id"] == rel_us["target_artifact"]), None)
                 if matched_us_art:
                     chain["user_story"] = {
                         "id": matched_us_art["artifact_id"],
                         "name": matched_us_art["document_name"],
                         "text": matched_us_art["text"]
                     }
-                    chain["evidence_chain"].append(f"FRD→US [{valid_us_rel['status']}]: {valid_us_rel['evidence']}")
+                    chain["evidence_chain"].append(f"FRD→US [{rel_us['status']}]: {rel_us['evidence']}")
                     current_us = matched_us_art
 
         # Step 4: Test Case
         target_for_tc = current_us or current_frd or current_srs
         if target_for_tc:
-            tc_rels = find_candidate_relationships(target_for_tc, tc_list, vectorizer, relationship_type="VERIFIED_BY")
-            valid_tc_rel = next((t for t in tc_rels if t["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]), tc_rels[0])
-            if valid_tc_rel["status"] in ["MATCHED", "PARTIAL", "CONFLICT"]:
-                matched_tc_art = next((t for t in tc_list if t["artifact_id"] == valid_tc_rel["target_artifact"]), None)
+            rel_tc = canonical_rel_map.get((target_for_tc["artifact_id"], "VERIFIED_BY")) or canonical_rel_map.get(target_for_tc["artifact_id"])
+            if rel_tc:
+                matched_tc_art = next((t for t in tc_list if t["artifact_id"] == rel_tc["target_artifact"]), None)
                 if matched_tc_art:
                     chain["test_case"] = {
                         "id": matched_tc_art["artifact_id"],
                         "name": matched_tc_art["document_name"],
                         "text": matched_tc_art["text"]
                     }
-                    chain["evidence_chain"].append(f"US→TC [{valid_tc_rel['status']}]: {valid_tc_rel['evidence']}")
+                    chain["evidence_chain"].append(f"US→TC [{rel_tc['status']}]: {rel_tc['evidence']}")
 
-        # Determine overall chain status
+        # Determine overall chain status from canonical edges only
         chain_statuses = [ev.split('[')[1].split(']')[0] for ev in chain["evidence_chain"] if '[' in ev]
         if "CONFLICT" in chain_statuses:
             overall = "CONFLICT"
-        elif all(st == "MATCHED" for st in chain_statuses) and len(chain_statuses) >= 2:
+        elif chain_statuses and all(st == "MATCHED" for st in chain_statuses) and len(chain_statuses) >= 2:
             overall = "MATCHED"
         elif any(st in ["MATCHED", "PARTIAL"] for st in chain_statuses):
             overall = "PARTIAL"
