@@ -357,18 +357,27 @@ def evaluate_candidate_relevance_gate(
     tgt_low = target_text.lower()
 
     # 1. Check for administrative / physical hardware procurement or obsolete analog media without software realization
-    hardware_procurement_actions = ["procure", "purchase", "install in", "replace physical", "order 30", "order 25", "buy", "physical replacement"]
+    hardware_procurement_actions = ["procure", "purchas", "install", "order", "buy", "physical", "cater", "menu", "replac", "standing desk", "motorized", "decided to procure"]
     hardware_physical_objects = [
         "projector", "screen", "whiteboard", "chair", "desk", "furniture",
         "charger", "charging station", "espresso", "coffee", "shoe cleaner", "air purifier",
         "air conditioner", "hvac", "vending machine", "microwave", "refrigerator", "cooler",
-        "breakroom", "parking lot", "standing desk", "lunch menu", "meal specials", "hot lunch"
+        "breakroom", "parking lot", "standing desk", "lunch menu", "meal specials", "hot lunch",
+        "catering", "sandwich", "fruit basket", "water heater", "whiteboard marker"
     ]
     obsolete_analog_media = ["microfiche", "microfilm", "35mm film", "punch card", "floppy disk", "magnetic tape reel"]
 
-    is_physical_procurement = (any(obj in src_low for obj in hardware_physical_objects) and (
-        any(act in src_low for act in hardware_procurement_actions) or not any(sw in src_low for sw in ["software", "api", "app", "service", "module", "endpoint", "driver", "calibrate", "calibration", "protocol", "portal", "command", "telemetry"])
-    )) or (any(med in src_low for med in obsolete_analog_media) and not any(med in tgt_low for med in obsolete_analog_media))
+    is_physical_procurement = (
+        (any(obj in src_low for obj in hardware_physical_objects) and (
+            any(act in src_low for act in hardware_procurement_actions)
+            or not any(sw in src_low for sw in ["software", "api", "app", "service", "module", "endpoint", "driver", "protocol", "portal", "command", "algorithm", "database", "pipeline", "function"])
+        ))
+        or (any(obj in tgt_low for obj in hardware_physical_objects) and (
+            any(act in tgt_low for act in hardware_procurement_actions)
+            or not any(sw in tgt_low for sw in ["software", "api", "app", "service", "module", "endpoint", "driver", "protocol", "portal", "command", "algorithm", "database", "pipeline", "function"])
+        ))
+        or (any(med in src_low for med in obsolete_analog_media) and not any(med in tgt_low for med in obsolete_analog_media))
+    )
 
     if is_physical_procurement:
         return False, "Administrative, physical hardware, or obsolete analog media excluded from software traceability"
