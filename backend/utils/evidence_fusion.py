@@ -43,18 +43,18 @@ ACTION_PATTERNS = {
     "pay": [r"\bpay\w*\b", r"\bcheckout\b", r"\bcharg\w*\b", r"\bbill\w*\b", r"\bremit\w*\b", r"\bsettle\s+invoice\b"],
     "refund": [r"\brefund\w*\b", r"\breimburs\w*\b", r"\brevers\w*\s+payment\b", r"\bcredit\s+back\b", r"\breturn\s+funds\b"],
     "reconcile": [r"\breconcil\w*\b", r"\bmatch\s+settlement\b", r"\bcompar\w*\s+files\b", r"\baudit\s+ledger\b", r"\bbalance\s+records\b", r"\bcross-?check\b"],
-    "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bpush\s+notification\b", r"\bmessage\w*\b", r"\bwarn\w*\b"],
+    "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bpush\s+notification\b", r"\bmessage\w*\b", r"\bwarn\w*\b", r"\breceipt\b", r"\bconfirmation\b"],
     "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b", r"\bdiscover\w*\b"],
-    "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\bdump\b", r"\bgenerate\s+report\b"],
-    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\w*\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b"],
+    "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\bdump\b", r"\bgenerate\s+report\b", r"\bdepreciation\b"],
+    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\w*\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b", r"\bfile\w*\b"],
     "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b", r"\bwaveform\b", r"\bstream\w*\b"],
-    "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b"],
-    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcompute\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b"],
-    "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b", r"\bflir\b", r"\bedf\b"],
+    "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b", r"\bauthoriz\w*\b"],
+    "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcomput\w*\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b"],
+    "capture": [r"\bcaptur\w*\b", r"\bupload\w*\b", r"\bscan\w*\b", r"\bocr\b", r"\battach\w*\b", r"\bphoto\b", r"\bcamera\b", r"\bingest\w*\b", r"\bflir\b", r"\bedf\b", r"\bimage\w*\b"],
     "detect_dup": [r"\bdetect\w*\s+duplicat\w*\b", r"\bprevent\w*\s+duplicat\w*\b", r"\bblock\w*\s+duplicat\w*\b", r"\bdiscard\w*\s+duplicat\w*\b", r"\bduplicat\w*\s+check\w*\b", r"\bflag\w*\s+duplicat\w*\b", r"\bdedup\w*\b", r"\bduplicate\s+receipt\w*\b", r"\bduplicate\s+warning\b", r"\bduplicate\s+claim\w*\b", r"\bduplicate\s+image\w*\b", r"\bduplicate\s+packet\w*\b", r"\bduplicate\s+sensor\w*\b", r"\bduplicate\s+telemetry\w*\b", r"\bduplicate\s+waypoint\w*\b", r"\bduplicate\s+flight\w*\b"],
     "prevent_conflict": [r"\boverlapping\b", r"\bdouble-?book\w*\b", r"\bconflict\w*\s+assignment\w*\b", r"\bcollision\b"],
     "history": [r"\bhistory\b", r"\bhistorical\b", r"\bpast\s+maintenance\b", r"\bpast\s+repair\b", r"\brepair\s+history\b", r"\bmaintenance\s+history\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b"],
-    "fault_report": [r"\bfault\w*\b", r"\bbreakdown\w*\b", r"\bdefect\w*\b", r"\bmalfunction\w*\b", r"\badverse\s+event\b", r"\bhazard\s+report\b"],
+    "fault_report": [r"\bfault\w*\b", r"\bbreakdown\w*\b", r"\bdefect\w*\b", r"\bmalfunction\w*\b", r"\badverse\s+event\b", r"\bhazard\s+report\b", r"\bfail(?:ure|ed|ing|s)?\b(?!-safe)"],
     "emergency_contact": [r"\bemergency\s+contact\w*\b", r"\bnext-?of-?kin\b"],
 }
 
@@ -74,8 +74,8 @@ ACTOR_PATTERNS = {
 # ── Context / Temporal Modifiers ──────────────────────────────────────────────
 CONTEXT_PATTERNS = {
     "temporal_before": [r"\bbefore\b", r"\bprior\s+to\b", r"\bpre-?\b", r"\buntil\b"],
-    "temporal_after": [r"\bafter\b", r"\bfollowing\b", r"\bonce\b", r"\bupon\b"],
-    "conditional": [r"\bwhen\b", r"\bif\b", r"\bunless\b", r"\bonly\s+when\b", r"\bin\s+case\b"],
+    "temporal_after": [r"\bafter\b", r"\bfollowing\b", r"\bonce\b", r"\bupon\b", r"\bwhen\b"],
+    "conditional": [r"\bif\b", r"\bunless\b", r"\bonly\s+when\b", r"\bin\s+case\b"],
     "durational": [r"\bduring\b", r"\bwhile\b", r"\bthroughout\b"],
 }
 
@@ -83,20 +83,15 @@ CONTEXT_PATTERNS = {
 INCOMPATIBLE_ACTION_PAIRS = [
     ({"reconcile"}, {"refund"}),
     ({"export"}, {"manage"}),
-    ({"cancel"}, {"reserve"}),
     ({"search"}, {"manage"}),
     ({"estimate"}, {"refund"}),
     ({"estimate"}, {"manage"}),
-    ({"approve"}, {"manage"}),       # Manager approval != employee creation/submission
-    ({"cancel"}, {"auth"}),          # Cancellation != Access control
-    ({"capture"}, {"detect_dup"}),   # Receipt capture/upload != Duplicate fraud detection
-    ({"auth"}, {"detect_dup"}),      # Access control != Duplicate detection
-    ({"track"}, {"estimate"}),       # Telemetry tracking != Calculation/estimation
-    ({"track"}, {"pay"}),            # Telemetry tracking != Payment
-    ({"track"}, {"refund"}),         # Telemetry tracking != Refund
-    ({"track"}, {"auth"}),           # Telemetry tracking != Authentication
-    ({"track"}, {"reconcile"}),      # Telemetry tracking != Reconciliation
-    ({"track"}, {"reserve"}),        # Telemetry tracking != Dispatch assignment/reservation
+    ({"approve"}, {"manage"}),          # Manager approval != employee creation/submission
+    ({"approve"}, {"fault_report"}),     # Workflow success/approval != failure alert
+    ({"cancel"}, {"auth"}),             # Cancellation != Access control
+    ({"capture"}, {"detect_dup"}),      # Receipt capture/upload != Duplicate fraud detection
+    ({"track"}, {"reserve"}),           # Telemetry tracking != Route assignment
+    ({"export"}, {"track"}),            # Reporting export != Telemetry stream
 ]
 
 
@@ -113,12 +108,20 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
         if (spec in actions_a and spec not in actions_b) or (spec in actions_b and spec not in actions_a):
             return 0.05, f"Incompatible action divergence: specialized capability [{spec}] requires matching realization"
 
-    # Shared actions take precedence
+    # Incompatible cancellation vs creation/reservation realization
+    if (("cancel" in actions_a and "cancel" not in actions_b and "reserve" in actions_b) or
+        ("cancel" in actions_b and "cancel" not in actions_a and "reserve" in actions_a)):
+        return 0.05, "Incompatible action divergence: cancellation vs reservation realization"
+
+    # Shared actions take precedence with recall scoring
     shared = actions_a & actions_b
     if shared:
-        return 1.0, f"Aligned actions on [{', '.join(shared)}]"
+        recall = len(shared) / len(actions_a)
+        if recall == 1.0:
+            return 1.0, f"Aligned actions on [{', '.join(shared)}]"
+        return round(0.55 + 0.40 * recall, 4), f"Partially aligned actions on [{', '.join(shared)}] (Coverage: {recall:.0%})"
 
-    # Check for strictly incompatible action pairs when no actions are shared
+    # Check for strictly incompatible action pairs when NO actions are shared
     for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
         if (actions_a & group1 and actions_b & group2) or (actions_a & group2 and actions_b & group1):
             return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
@@ -350,15 +353,19 @@ def detect_missing_conditions(source_text: str, target_text: str) -> Tuple[bool,
     tgt_lower = target_text.lower()
 
     compound_indicators = [
-        (r'\band\s+(?:receive|get)\s+.*?\b(?:receipt|notification|email|confirmation|sms)\b', 'receipt / notification delivery'),
-        (r'\band\s+(?:send|dispatch|notify)\b', 'notification dispatch'),
-        (r'\band\s+(?:record|log|archive)\b', 'audit / archiving logging'),
-        (r'\band\s+(?:upload|attach)\s+.*?\breceipt\b', 'receipt attachment'),
+        (r'\band\s+(?:receive\w*|get\w*)\s+.*?\b(?:receipt|notification|email|confirmation|sms)\w*\b', 'receipt / notification delivery'),
+        (r'\band\s+(?:send\w*|dispatch\w*|notify\w*)\b', 'notification dispatch'),
+        (r'\band\s+(?:record\w*|log\w*|archive\w*)\b', 'audit / archiving logging'),
+        (r'\band\s+(?:upload\w*|attach\w*)\s+.*?\b(?:receipt|photo|evidence|image|document|file)\w*\b', 'attachment / image upload'),
     ]
 
     for pat, desc in compound_indicators:
         if re.search(pat, src_lower) and not re.search(pat, tgt_lower):
             return True, f"Source specifies secondary condition not covered in target ({desc})"
+
+    if re.search(r'\bwithout\s+(?:attachments?|photos?|receipts?|images?|proof)\b', tgt_lower):
+        if re.search(r'\b(?:attach|upload|photo|receipt|image)\b', src_lower):
+            return True, "Target explicitly excludes secondary attachment requirement"
 
     # Generic check on coordinate action conjunctions (e.g. "submit expenses AND upload receipts")
     if re.search(r'\b(?:and|as well as)\s+(?:upload|attach|export|download|scan|notify|alert|dispatch)\b', src_lower):
@@ -386,6 +393,42 @@ def detect_capability_extension(source_text: str, target_text: str) -> Tuple[boo
     return False, ""
 
 
+def compute_capability_identity_score(
+    action_score: float,
+    entity_score: float,
+    context_score: float,
+    actor_score: float,
+    hybrid_score: float,
+    shared_intents: Set[str],
+    has_id_ref: bool = False
+) -> Tuple[float, bool]:
+    """
+    Computes capability identity score prioritizing structural alignment:
+    Priority: Action (35%) > Entity (30%) > Actor/Context (15%) > Hybrid Semantic (20%).
+    
+    Returns (capability_score, is_exact_capability)
+    """
+    if has_id_ref:
+        return 1.0, True
+
+    intent_boost = 0.10 if shared_intents else 0.0
+    
+    cap_score = (
+        (action_score * 0.35)
+        + (entity_score * 0.30)
+        + (((context_score + actor_score) / 2.0) * 0.15)
+        + (hybrid_score * 0.20)
+        + intent_boost
+    )
+    cap_score = max(0.0, min(1.0, cap_score))
+    
+    # Exact capability realization condition:
+    # High action alignment (>= 0.70) AND positive entity alignment (>= 0.50) OR shared domain intents with action >= 0.50
+    is_exact = (action_score >= 0.70 and entity_score >= 0.50) or (bool(shared_intents) and action_score >= 0.50)
+    
+    return round(cap_score, 4), is_exact
+
+
 def rank_and_disambiguate_candidates(
     candidates_evaluations: List[Dict],
     min_match_threshold: float = 0.45,
@@ -393,22 +436,34 @@ def rank_and_disambiguate_candidates(
     ambiguity_margin: float = 0.04
 ) -> List[Dict]:
     """
-    Ranks evaluated candidates that passed the relevance gate, computes score margins,
-    and disambiguates close candidates.
+    Ranks evaluated candidates that passed the relevance gate using capability identity
+    first, computes score margins, and disambiguates close candidates.
     """
     if not candidates_evaluations:
         return []
 
-    sorted_cands = sorted(candidates_evaluations, key=lambda x: x["composite_score"], reverse=True)
+    # Sort key: (not has_missing, is_exact_capability, capability_identity_score, composite_score)
+    sorted_cands = sorted(
+        candidates_evaluations,
+        key=lambda x: (
+            1 if not x.get("has_missing") else 0,
+            1 if x.get("is_exact_capability") else 0,
+            x.get("capability_identity_score", x.get("composite_score", 0.0)),
+            x["composite_score"]
+        ),
+        reverse=True
+    )
     top = sorted_cands[0]
     
     if len(sorted_cands) > 1:
         second = sorted_cands[1]
-        score_margin = top["composite_score"] - second["composite_score"]
+        top_cap = top.get("capability_identity_score", top.get("composite_score", 0.0))
+        sec_cap = second.get("capability_identity_score", second.get("composite_score", 0.0))
+        score_margin = top_cap - sec_cap
         top["score_margin"] = round(score_margin, 4)
         
-        # Ambiguity check
-        if score_margin < ambiguity_margin and top["composite_score"] >= min_match_threshold:
+        # Ambiguity check: only when neither is an exact capability and score margin < ambiguity_margin
+        if score_margin < ambiguity_margin and not top.get("is_exact_capability") and top["composite_score"] >= min_match_threshold:
             top["is_ambiguous"] = True
             top["disambiguated_status"] = "PARTIAL"
             top["status"] = "PARTIAL"
@@ -416,5 +471,5 @@ def rank_and_disambiguate_candidates(
             top["evidence"] = top.get("evidence", "") + f" | Ambiguous match (close candidate score margin: {score_margin:.3f})"
             return [top]
 
-    top["score_margin"] = 1.0 if len(sorted_cands) == 1 else round(top["composite_score"] - sorted_cands[1]["composite_score"], 4)
+    top["score_margin"] = 1.0 if len(sorted_cands) == 1 else round(top.get("capability_identity_score", top["composite_score"]) - sorted_cands[1].get("capability_identity_score", sorted_cands[1]["composite_score"]), 4)
     return [top]

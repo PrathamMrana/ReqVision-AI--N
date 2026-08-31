@@ -8,11 +8,14 @@ from utils.extractor import determine_canonical_artifact_type
 from utils.semantic_engine import SemanticEngine
 from utils.negation_detector import check_polarity_conflict, check_numeric_conflict
 from utils.evidence_fusion import (
+    evaluate_candidate_relevance_gate,
     evaluate_action_alignment,
     evaluate_entity_alignment,
-    evaluate_candidate_relevance_gate,
+    evaluate_actor_alignment,
+    evaluate_context_alignment,
     detect_missing_conditions,
     detect_capability_extension,
+    compute_capability_identity_score,
     rank_and_disambiguate_candidates
 )
 
@@ -352,8 +355,13 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         # ── 4. Action & Entity Alignment (Anti-Hallucination) ─────────────────
         action_score, action_reason = evaluate_action_alignment(source_art["text"], cand["text"])
         entity_score, entity_reason = evaluate_entity_alignment(source_art["text"], cand["text"])
+        actor_score, actor_reason = evaluate_actor_alignment(source_art["text"], cand["text"])
+        context_score, context_reason = evaluate_context_alignment(source_art["text"], cand["text"])
         has_missing, missing_reason = detect_missing_conditions(source_art["text"], cand["text"])
         is_extension, extension_reason = detect_capability_extension(source_art["text"], cand["text"])
+        cap_id_score, is_exact = compute_capability_identity_score(
+            action_score, entity_score, context_score, actor_score, hybrid, shared_intents, has_id_ref=has_id_ref
+        )
 
         # ── 5. Negation / polarity check (generic) ────────────────────────────
         polarity_conflict, polarity_reason = check_polarity_conflict(source_art["text"], cand["text"])
@@ -461,11 +469,15 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             "cand": cand,
             "hybrid": hybrid,
             "composite_score": round(composite_score, 4),
+            "capability_identity_score": cap_id_score,
+            "is_exact_capability": is_exact,
             "sem_score": sem_score,
             "lex_score": lex_score,
             "intent_val": intent_val,
             "action_score": action_score,
             "entity_score": entity_score,
+            "actor_score": actor_score,
+            "context_score": context_score,
             "has_missing": has_missing,
             "missing_reason": missing_reason,
             "is_extension": is_extension,
@@ -567,8 +579,8 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
                 "confidence": "Medium",
                 "evidence": f"Modified quantitative value: {best['num_reason']} | {best_ev}"
             })
-        elif (best_hybrid >= HYBRID_MATCH_THRESHOLD or best_composite >= HYBRID_MATCH_THRESHOLD or bool(best["shared_intents"])) and best["composite_score"] >= 0.38:
-            conf = "High" if (best_hybrid >= 0.60 or bool(best["shared_intents"])) and best.get("score_margin", 1.0) >= 0.08 else "Medium"
+        elif best.get("is_exact_capability") or ((best_hybrid >= HYBRID_MATCH_THRESHOLD or best_composite >= HYBRID_MATCH_THRESHOLD or bool(best["shared_intents"])) and best["composite_score"] >= 0.35):
+            conf = "High" if (best.get("is_exact_capability") or best_hybrid >= 0.60 or bool(best["shared_intents"])) and best.get("score_margin", 1.0) >= 0.08 else "Medium"
             matches_found.append({
                 "source_document": source_art["document_name"],
                 "source_type": source_art["document_type"],
