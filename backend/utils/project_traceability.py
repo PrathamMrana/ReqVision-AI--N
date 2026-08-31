@@ -16,7 +16,8 @@ from utils.evidence_fusion import (
     detect_missing_conditions,
     detect_capability_extension,
     compute_capability_identity_score,
-    rank_and_disambiguate_candidates
+    rank_and_disambiguate_candidates,
+    extract_governance_state
 )
 
 # ── Semantic engine (singleton, loaded once) ──────────────────────────────────
@@ -344,9 +345,10 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             source_art["text"], cand["text"], lex_score, shared_intents
         )
 
-        # ── 3. Hard Candidate Relevance Gate ──────────────────────────────────
+        # ── 3. Hard Candidate Relevance Gate with Relationship-Specific Proof ──
         is_relevant, relevance_reason = evaluate_candidate_relevance_gate(
-            source_art["text"], cand["text"], sem_score, lex_score, shared_intents, has_explicit_ref=has_id_ref
+            source_art["text"], cand["text"], sem_score, lex_score, shared_intents,
+            relationship_type=relationship_type, has_explicit_ref=has_id_ref
         )
         if not is_relevant:
             # REJECT candidate immediately — do NOT process for conflict, do NOT add to evaluated candidates
@@ -367,12 +369,29 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         polarity_conflict, polarity_reason = check_polarity_conflict(source_art["text"], cand["text"])
         numeric_result, numeric_reason = check_numeric_conflict(source_art["text"], cand["text"])
 
-        # ── 6. Change Request AFFECTS & Meeting Minutes ──────────────────────
+        # ── 6. Change Request AFFECTS & Governance Preservation ───────────────
         has_conflict, conflict_reason = check_explainable_conflict(source_art["text"], cand["text"])
+        gov_state, gov_desc = extract_governance_state(source_art["text"])
+
         if relationship_type == "AFFECTS":
-            # Change requests modifying or reversing requirements legitimately affect those targets
-            if has_conflict or polarity_conflict or has_id_ref or hybrid >= 0.35:
-                status_label = "MATCHED" if not polarity_conflict else "MATCHED"
+            # Change requests must prove actual impact on the existing requirement:
+            # explicit reference, polarity reversal, numeric modification, capability extension, or exact capability impact
+            is_genuine_impact = (
+                has_id_ref
+                or has_conflict
+                or polarity_conflict
+                or numeric_result == "MODIFIED_VALUE"
+                or is_extension
+                or (cap_id_score >= 0.60 and action_score >= 0.50 and entity_score >= 0.35 and hybrid >= 0.45)
+            )
+            if is_genuine_impact:
+                impact_evidence = (
+                    conflict_reason
+                    or polarity_reason
+                    or (f"Modified quantitative parameter ({numeric_reason})" if numeric_result == "MODIFIED_VALUE" else "")
+                    or (f"Capability extension ({extension_reason})" if is_extension else "")
+                    or f"Functional modification impact (Hybrid: {hybrid:.2f})"
+                )
                 matches_found.append({
                     "source_document": source_art["document_name"],
                     "source_type": source_art["document_type"],
@@ -385,7 +404,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
                     "target_artifact": cand["artifact_id"],
                     "target_text": cand["text"],
                     "relationship": relationship_type,
-                    "status": status_label,
+                    "status": "MATCHED",
                     "similarity": max(hybrid, 0.50),
                     "semantic_similarity": sem_score,
                     "lexical_similarity": round(lex_score, 4),
@@ -393,9 +412,11 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
                     "intent_score": round(intent_val, 4),
                     "semantic_enabled": _sem_available,
                     "confidence": "High" if has_id_ref else "Medium",
-                    "evidence": f"Change Request impact: {conflict_reason or polarity_reason or 'Functional modification'} (Hybrid: {hybrid:.2f})"
+                    "evidence": f"Change Request impact: {impact_evidence}"
                 })
                 continue
+            else:
+                continue  # Standalone / non-impacting CR candidate rejected
 
         # ── 7. Emit CONFLICT records (ONLY for confirmed relevant candidates) ─
         # Rule-based conflict (e.g., reversible password vs one-way hash)
@@ -580,6 +601,9 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
                 "evidence": f"Modified quantitative value: {best['num_reason']} | {best_ev}"
             })
         elif best.get("is_exact_capability") or ((best_hybrid >= HYBRID_MATCH_THRESHOLD or best_composite >= HYBRID_MATCH_THRESHOLD or bool(best["shared_intents"])) and best["composite_score"] >= 0.35):
+            gov_state, gov_desc = extract_governance_state(source_art["text"])
+            status_out = "PARTIAL" if (relationship_type == "RELATED_TO" and gov_state == "PENDING") else "MATCHED"
+            evidence_out = f"Governance: PENDING — proposal under review | {best_ev}" if status_out == "PARTIAL" else best_ev
             conf = "High" if (best.get("is_exact_capability") or best_hybrid >= 0.60 or bool(best["shared_intents"])) and best.get("score_margin", 1.0) >= 0.08 else "Medium"
             matches_found.append({
                 "source_document": source_art["document_name"],
@@ -593,7 +617,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
                 "target_artifact": cand["artifact_id"],
                 "target_text": cand["text"],
                 "relationship": relationship_type,
-                "status": "MATCHED",
+                "status": status_out,
                 "similarity": best_hybrid,
                 "semantic_similarity": best_sem,
                 "lexical_similarity": round(best_lex, 4),
@@ -601,7 +625,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
                 "intent_score": round(best_intent, 4),
                 "semantic_enabled": _sem_available,
                 "confidence": conf,
-                "evidence": best_ev
+                "evidence": evidence_out
             })
         elif best_hybrid >= HYBRID_PARTIAL_THRESHOLD or best_composite >= HYBRID_PARTIAL_THRESHOLD:
             matches_found.append({

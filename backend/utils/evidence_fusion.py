@@ -46,7 +46,9 @@ ACTION_PATTERNS = {
     "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bpush\s+notification\b", r"\bmessage\w*\b", r"\bwarn\w*\b", r"\breceipt\b", r"\bconfirmation\b"],
     "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b", r"\bdiscover\w*\b"],
     "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\bdump\b", r"\bgenerate\s+report\b", r"\bdepreciation\b"],
-    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bdelet\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\w*\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b", r"\bfile\w*\b"],
+    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\s+(?:an?\s+)?(?:event|error|issue|incident|transaction|audit|fault)\b", r"\blogging\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b", r"\bfile\w*\b"],
+    "delete": [r"\bdelet\w*\b", r"\bremov\w*\b", r"\beras\w*\b", r"\bpurag\w*\b", r"\bdestroy\b", r"\bpermanently\s+delete\b"],
+    "view": [r"\bdisplay\w*\b", r"\bview\w*\b", r"\bvisualiz\w*\b", r"\bshow\w*\b", r"\bpresent\w*\b", r"\brender\w*\b", r"\bdashboard\b", r"\bui\b"],
     "track": [r"\btrack\w*\b", r"\bmonitor\w*\b", r"\btelemetry\b", r"\bgps\b", r"\blive\s+location\b", r"\beta\b", r"\bpropagation\b", r"\borbit\b", r"\bwaveform\b", r"\bstream\w*\b"],
     "approve": [r"\bapprov\w*\b", r"\breview\w*\b", r"\breject\w*\b", r"\bsanction\w*\b", r"\bendorse\w*\b", r"\bmanager\s+approval\b", r"\bauthoriz\w*\b"],
     "estimate": [r"\bestimat\w*\b", r"\bcalculat\w*\b", r"\bcost\s+project\w*\b", r"\bforecast\w*\b", r"\bquote\w*\b", r"\bprice\s+comput\w*\b", r"\bcomput\w*\b", r"\bspectral\b", r"\bfft\b", r"\bpower\s+spectra\b"],
@@ -82,13 +84,16 @@ CONTEXT_PATTERNS = {
 # ── Incompatible Action Pairs ─────────────────────────────────────────────────
 INCOMPATIBLE_ACTION_PAIRS = [
     ({"reconcile"}, {"refund"}),
-    ({"export"}, {"manage"}),
-    ({"search"}, {"manage"}),
+    ({"export"}, {"delete"}),           # Export/Archive != Permanent Deletion
+    ({"search"}, {"delete"}),
     ({"estimate"}, {"refund"}),
-    ({"estimate"}, {"manage"}),
+    ({"estimate"}, {"view"}),           # Calculation/Digest != Dashboard/Console display
+    ({"view"}, {"manage"}),             # Display/Console != Creation/Submission
+    ({"view"}, {"delete"}),             # Display/Console != Permanent Deletion
+    ({"view"}, {"cancel"}),             # Display/Console != Revocation/Cancellation
+    ({"view"}, {"auth"}),               # Display/Console != Credential authentication
     ({"approve"}, {"manage"}),          # Manager approval != employee creation/submission
     ({"approve"}, {"fault_report"}),     # Workflow success/approval != failure alert
-    ({"cancel"}, {"auth"}),             # Cancellation != Access control
     ({"capture"}, {"detect_dup"}),      # Receipt capture/upload != Duplicate fraud detection
     ({"track"}, {"reserve"}),           # Telemetry tracking != Route assignment
     ({"export"}, {"track"}),            # Reporting export != Telemetry stream
@@ -103,28 +108,28 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
     if not actions_a or not actions_b:
         return 0.70, "Neutral action alignment"
 
-    # Specialized capability mutual alignment (e.g. duplicate check, overlapping prevention, repair history)
+    # 1. Specialized capability mutual alignment (e.g. duplicate check, overlapping prevention, repair history)
     for spec in SPECIALIZED_CAPABILITIES:
         if (spec in actions_a and spec not in actions_b) or (spec in actions_b and spec not in actions_a):
             return 0.05, f"Incompatible action divergence: specialized capability [{spec}] requires matching realization"
 
-    # Incompatible cancellation vs creation/reservation realization
+    # 2. Incompatible cancellation vs creation/reservation realization
     if (("cancel" in actions_a and "cancel" not in actions_b and "reserve" in actions_b) or
         ("cancel" in actions_b and "cancel" not in actions_a and "reserve" in actions_a)):
         return 0.05, "Incompatible action divergence: cancellation vs reservation realization"
 
-    # Shared actions take precedence with recall scoring
+    # 3. Check for strictly incompatible operational action pairs (e.g. export vs delete, reconcile vs refund)
+    for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
+        if (actions_a & group1 and actions_b & group2) or (actions_a & group2 and actions_b & group1):
+            return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
+
+    # 4. Shared actions take precedence with recall scoring
     shared = actions_a & actions_b
     if shared:
         recall = len(shared) / len(actions_a)
         if recall == 1.0:
             return 1.0, f"Aligned actions on [{', '.join(shared)}]"
         return round(0.55 + 0.40 * recall, 4), f"Partially aligned actions on [{', '.join(shared)}] (Coverage: {recall:.0%})"
-
-    # Check for strictly incompatible action pairs when NO actions are shared
-    for group1, group2 in INCOMPATIBLE_ACTION_PAIRS:
-        if (actions_a & group1 and actions_b & group2) or (actions_a & group2 and actions_b & group1):
-            return 0.05, f"Incompatible action divergence: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
     return 0.40, f"Different actions: [{', '.join(actions_a)}] vs [{', '.join(actions_b)}]"
 
@@ -256,21 +261,56 @@ def evaluate_context_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
     return 0.50, "Different context triggers"
 
 
+def extract_governance_state(text: str) -> Tuple[str, str]:
+    """
+    Extracts explicit governance and review status from meeting/decision text.
+    Returns (state, description):
+      - 'UNRESOLVED' : Discussion occurred without consensus / agreement
+      - 'PENDING'    : Under review or proposed for future decision
+      - 'APPROVED'   : Formally agreed, confirmed, or mandated
+      - 'ACTION'     : Assigned implementation task
+      - 'REQUEST'    : Formal change request or proposal
+      - 'DISCUSSION' : General informational discussion
+    """
+    t = text.lower()
+    if any(p in t for p in [
+        "not agreed", "did not agree", "unclear", "could mean", "undecided", "ambiguous",
+        "no consensus", "unresolved", "meaning was not", "was not determined", "not determined",
+        "tabled without", "deferred without", "not yet decided", "discussed but no consensus",
+        "did not define", "discussed but did not", "discussed adding", "technical specifications"
+    ]):
+        return "UNRESOLVED", "Unresolved item without consensus"
+    if any(p in t for p in [
+        "pending decision", "under review", "to be decided", "proposed for future", "pending approval", "awaiting feedback"
+    ]):
+        return "PENDING", "Pending review / decision"
+    if any(p in t for p in [
+        "approved", "confirmed", "agreed", "decided", "resolved", "adopted", "mandated", "enforced", "unanimous"
+    ]):
+        return "APPROVED", "Confirmed decision / approved"
+    if any(p in t for p in ["action item", "assigned to", "tasked to", "will implement"]):
+        return "ACTION", "Assigned action item"
+    if any(p in t for p in ["change request", "proposal to", "request to"]):
+        return "REQUEST", "Formal request / proposal"
+    return "DISCUSSION", "Meeting discussion"
+
+
 def evaluate_candidate_relevance_gate(
     source_text: str,
     target_text: str,
     semantic_sim: Optional[float],
     lexical_sim: float,
     shared_intents: Set[str],
+    relationship_type: str = "TRACEABLE_TO",
     has_explicit_ref: bool = False
 ) -> Tuple[bool, str]:
     """
-    Hard Candidate Relevance Gate.
+    Hard Candidate Relevance Gate with Relationship-Specific Proof.
     
     A candidate MUST pass this gate to be considered for candidate ranking,
     MATCHED/PARTIAL relationships, or CONFLICT detection.
     
-    If source and target do NOT describe the same underlying capability:
+    If source and target do NOT satisfy the proof required for relationship_type:
     Returns (False, reason) -> Candidate is immediately REJECTED.
     """
     if has_explicit_ref:
@@ -297,14 +337,9 @@ def evaluate_candidate_relevance_gate(
         return False, "Administrative, physical hardware, or obsolete analog media excluded from software traceability"
 
     # 2. Check for unresolved review statements
-    unresolved_terms = [
-        "not agreed", "did not agree", "unclear", "could mean", "undecided", "ambiguous",
-        "further review", "unresolved", "did not define", "discussed but", "no consensus",
-        "pending decision", "not determined", "did not determine", "not decided", "did not decide",
-        "meaning was not", "meaning not determined", "was not determined", "not yet agreed"
-    ]
-    if any(phrase in src_low for phrase in unresolved_terms):
-        return False, "Unresolved review statement excluded from automatic mapping"
+    gov_state, gov_reason = extract_governance_state(source_text)
+    if gov_state == "UNRESOLVED":
+        return False, f"Governance Gate: {gov_reason} excluded from automatic mapping"
 
     actions_a = extract_actions(source_text)
     actions_b = extract_actions(target_text)
