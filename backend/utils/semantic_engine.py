@@ -22,8 +22,9 @@ from functools import lru_cache
 
 logger = logging.getLogger("ReqVision-SemanticEngine")
 
-MODEL_NAME = "sentence-transformers/all-MiniLM-L6-v2"
-HF_MODEL_ID = "all-MiniLM-L6-v2"
+MODEL_NAME = "sentence-transformers/all-mpnet-base-v2"
+HF_MODEL_ID = "all-mpnet-base-v2"
+FALLBACK_MODEL_ID = "all-MiniLM-L6-v2"
 
 # Negation / polarity words that must NOT be stripped during preprocessing
 _PRESERVE_WORDS = {
@@ -37,7 +38,7 @@ _PRESERVE_WORDS = {
 class SemanticEngine:
     """
     Singleton semantic embedding engine.
-    Loads all-MiniLM-L6-v2 once and caches embeddings by text hash.
+    Loads all-mpnet-base-v2 once (with fallback to all-MiniLM-L6-v2) and caches embeddings by text hash.
     """
 
     _instance = None
@@ -57,11 +58,12 @@ class SemanticEngine:
         self._initialized = True
         try:
             from sentence_transformers import SentenceTransformer
-            logger.info(f"[SemanticEngine] Loading model: {HF_MODEL_ID}")
+            logger.info(f"[SemanticEngine] Loading primary model: {HF_MODEL_ID}")
             try:
                 self.__class__._model = SentenceTransformer(HF_MODEL_ID)
-            except Exception:
-                self.__class__._model = SentenceTransformer(MODEL_NAME)
+            except Exception as e1:
+                logger.info(f"[SemanticEngine] Primary model load failed ({e1}), falling back to {FALLBACK_MODEL_ID}")
+                self.__class__._model = SentenceTransformer(FALLBACK_MODEL_ID)
             self.__class__._available = True
             logger.info(f"[SemanticEngine] Model loaded successfully: {MODEL_NAME}")
         except ImportError:

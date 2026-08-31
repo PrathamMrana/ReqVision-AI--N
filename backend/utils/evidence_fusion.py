@@ -505,12 +505,14 @@ def compute_capability_identity_score(
     
     # Exact capability realization condition:
     # High action alignment (>= 0.70) AND positive entity alignment (>= 0.50)
-    # OR shared domain intents with action >= 0.50
-    # OR strong entity overlap (>= 0.55) with hybrid >= 0.30 and neutral/compatible action (>= 0.50)
+    # OR shared domain intents with action >= 0.60 and entity >= 0.40
+    # OR strong entity overlap (>= 0.55) with hybrid >= 0.25 and neutral/compatible action (>= 0.50)
+    # OR strong hybrid semantic similarity (>= 0.40) with entity overlap (>= 0.50) and compatible action (>= 0.40)
     is_exact = (
         (action_score >= 0.70 and entity_score >= 0.50)
-        or (bool(shared_intents) and action_score >= 0.50)
-        or (entity_score >= 0.55 and hybrid_score >= 0.30 and action_score >= 0.50)
+        or (bool(shared_intents) and action_score >= 0.60 and entity_score >= 0.40)
+        or (entity_score >= 0.55 and hybrid_score >= 0.25 and action_score >= 0.50)
+        or (hybrid_score >= 0.40 and entity_score >= 0.50 and action_score >= 0.40)
     )
     
     return round(cap_score, 4), is_exact
@@ -534,9 +536,8 @@ def rank_and_disambiguate_candidates(
         is_ex = 1 if c.get("is_exact_capability") else 0
         cap_id = c.get("capability_identity_score", 0.0)
         comp = c.get("composite_score", 0.0)
-        # When exact capability exists, prioritize capability identity; otherwise balance capability identity with composite evidence
-        rank_metric = cap_id if is_ex else (0.50 * cap_id + 0.50 * comp)
-        return (has_miss, is_ex, rank_metric, comp)
+        score = (cap_id * 0.60) + (comp * 0.40)
+        return (has_miss, is_ex, score, comp)
 
     sorted_cands = sorted(candidates_evaluations, key=_rank_key, reverse=True)
     top = sorted_cands[0]
