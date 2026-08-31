@@ -88,8 +88,8 @@ DOMAIN_INTENTS = {
         "patterns": [r"\breport(?:s|ing)?\b", r"\bcirculation\b", r"\banalytics\b", r"\bridership\b", r"\bfleet\s+operations\b", r"\butilization\b", r"\bdashboard\b", r"\bexport\s+(?:pdf|csv)\b"]
     },
     "auth_security": {
-        "keywords": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "2fa", "totp", "oauth", "profile", "sign in"},
-        "patterns": [r"\bauthenticat(?:e|ion)\b", r"\blogin\b", r"\bcredential(?:s)?\b", r"\bpassword\b", r"\bmfa\b", r"\b2fa\b", r"\btotp\b", r"\boauth\b", r"\bsign\s+in\b", r"\bemail\s+and\s+password\b"]
+        "keywords": {"auth", "authenticate", "authentication", "credential", "credentials", "login", "password", "hash", "salted", "jwt", "mfa", "2fa", "totp", "oauth", "profile", "sign in", "pin", "pins"},
+        "patterns": [r"\bauthenticat(?:e|ion)\b", r"\blogin\b", r"\bcredential(?:s)?\b", r"\bpassword\b", r"\bmfa\b", r"\b2fa\b", r"\btotp\b", r"\boauth\b", r"\bsign\s+in\b", r"\bemail\s+and\s+password\b", r"\bpins?\b"]
     },
     "notification_alerts": {
         "keywords": {"notification", "notifications", "alert", "alerts", "reminder", "reminders", "smtp", "dispatch", "due date", "push", "sms", "delay", "service alert", "audio", "voice", "diversion"},

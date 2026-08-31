@@ -37,16 +37,16 @@ EVIDENCE_WEIGHTS = {
 # ── Generic Action Patterns & Specialized Capability Families ─────────────────
 ACTION_PATTERNS = {
     "auth": [r"\bauthenticat\w*\b", r"\blogin\b", r"\bsign-?in\b", r"\bverify\b.{0,15}\bidentity\b", r"\bauthoriz\w*\b", r"\bmfa\b", r"\b2fa\b", r"\bsession\b", r"\baccess\s+control\b", r"\bpermission\w*\b", r"\brbac\b", r"\bpassword\b", r"\bcredential\w*\b", r"\btoken\w*\b", r"\bsmartcard\w*\b", r"\bbiometric\b"],
-    "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b", r"\bwithdraw\w*\b"],
-    "emergency_stop": [r"\bemergency\b", r"\bshutdown\b", r"\bshut\s*off\b", r"\bhalt\b", r"\bsafe[-_]?off\b", r"\bdepressuriz\w*\b", r"\bdisarm\b", r"\bkill\s+switch\b", r"\bfail-?safe\b", r"\brtb\b", r"\breturn-?to-?base\b"],
-    "reserve": [r"\breserv\w*\b", r"\bbook\w*\b", r"\bhold\b", r"\ballocat\w*\b", r"\bappoint\w*\b", r"\bassign\w*\b", r"\bdispatch\w*\b", r"\bopen\b", r"\bactuat\w*\b"],
+    "cancel": [r"\bcancel\w*\b", r"\brevok\w*\b", r"\bterminat\w*\b", r"\bdiscontinu\w*\b", r"\bvoid\b", r"\babort\b", r"\breleas\w*\b", r"\bwithdraw\w*\b", r"\bhalt\w*\b", r"\bstop\w*\b", r"\bdisabl\w*\b", r"\binvalidat\w*\b", r"\bdisengag\w*\b", r"\bshut\s*down\b", r"\bshut\s*off\b"],
+    "emergency_stop": [r"\bemergency\b", r"\bsafe[-_]?off\b", r"\bdepressuriz\w*\b", r"\bdisarm\b", r"\bkill\s+switch\b", r"\bfail-?safe\b", r"\brtb\b", r"\breturn-?to-?base\b", r"\brelief\b", r"\bquench\b", r"\binterlock\b", r"\bparachute\b", r"\bballistic\b", r"\bsafety\s+(?:sub)?system\b"],
+    "reserve": [r"\breserv\w*\b", r"\bbook\w*\b", r"\bhold\b", r"\ballocat\w*\b", r"\bappoint\w*\b", r"\bassign\w*\b", r"\bdispatch\w*\b", r"\bopen\b"],
     "pay": [r"\bpay\w*\b", r"\bcheckout\b", r"\bcharg\w*\b", r"\bbill\w*\b", r"\bremit\w*\b", r"\bsettle\s+invoice\b"],
     "refund": [r"\brefund\w*\b", r"\breimburs\w*\b", r"\brevers\w*\s+payment\b", r"\bcredit\s+back\b", r"\breturn\s+funds\b"],
     "reconcile": [r"\breconcil\w*\b", r"\bmatch\s+settlement\b", r"\bcompar\w*\s+files\b", r"\baudit\s+ledger\b", r"\bbalance\s+records\b", r"\bcross-?check\b"],
     "notify": [r"\bnotif\w*\b", r"\balert\w*\b", r"\bremind\w*\b", r"\bsend\s+(?:email|sms|push|slack|whatsapp)\b", r"\bpush\s+notification\b", r"\bmessage\w*\b", r"\bwarn\w*\b", r"\breceipt\b", r"\bconfirmation\b"],
     "search": [r"\bsearch\w*\b", r"\bquery\w*\b", r"\bfind\w*\b", r"\blookup\b", r"\bfilter\w*\b", r"\bbrowse\w*\b", r"\blocat\w*\b", r"\bdiscover\w*\b"],
     "export": [r"\bexport\w*\b", r"\bdownload\w*\b", r"\bextract\s+data\b", r"\bdump\b", r"\bgenerate\s+report\b", r"\bdepreciation\b"],
-    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\s+(?:an?\s+)?(?:event|error|issue|incident|transaction|audit|fault)\b", r"\blogging\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b", r"\bfile\w*\b"],
+    "manage": [r"\bcreat\w*\b", r"\bupdat\w*\b", r"\bedit\w*\b", r"\bmaintain\w*\b", r"\bmodif\w*\b", r"\bregister\w*\b", r"\bonboard\w*\b", r"\bsubmit\w*\b", r"\blog\s+(?:an?\s+)?(?:event|error|issue|incident|transaction|audit|fault)\b", r"\blogging\b", r"\bwork\s*order\w*\b", r"\brepair\w*\b", r"\bfile\w*\b", r"\bexecut\w*\b", r"\bperform\w*\b", r"\boperat(?:e|es|ing)\b"],
     "delete": [r"\bdelet\w*\b", r"\bremov\w*\b", r"\beras\w*\b", r"\bpurag\w*\b", r"\bdestroy\b", r"\bpermanently\s+delete\b"],
     "view": [r"\bdisplay\w*\b", r"\bview\w*\b", r"\bvisualiz\w*\b", r"\bshow\w*\b", r"\bpresent\w*\b", r"\bdashboard\b", r"\bui\b", r"\bwidget\b", r"\bmetrics\b", r"\bstatistic\w*\b"],
     "stream": [r"\bstream\w*\b", r"\bplay\w*\b", r"\brender\w*\b", r"\bbroadcast\w*\b", r"\bfeed\w*\b", r"\btransmission\b"],
@@ -94,8 +94,13 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"view"}, {"delete"}),             # Display/Console != Permanent Deletion
     ({"view"}, {"cancel"}),             # Display/Console != Revocation/Cancellation
     ({"view"}, {"auth"}),               # Display/Console != Credential authentication
+    ({"view"}, {"detect_dup"}),         # Display/Dashboard != Duplicate Detection
+    ({"view"}, {"fault_report"}),       # Display/Dashboard != Fault/Defect Reporting
     ({"approve"}, {"manage"}),          # Manager approval != employee creation/submission
     ({"approve"}, {"fault_report"}),     # Workflow success/approval != failure alert
+    ({"approve"}, {"detect_dup"}),      # Manager approval != Duplicate prevention
+    ({"approve"}, {"history"}),          # Approval workflow != Historical audit trail
+    ({"history"}, {"estimate"}),        # Historical audit log != Sensor/Tolerance calculation
     ({"capture"}, {"detect_dup"}),      # Receipt capture/upload != Duplicate fraud detection
     ({"track"}, {"reserve"}),           # Telemetry tracking != Route assignment
     ({"export"}, {"track"}),            # Reporting export != Telemetry stream
@@ -117,7 +122,7 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
     actions_b = extract_actions(text_b)
 
     if not actions_a or not actions_b:
-        return 0.70, "Neutral action alignment"
+        return 0.50, "Neutral action alignment"
 
     # 1. Specialized capability mutual alignment (e.g. duplicate check, overlapping prevention, repair history)
     for spec in SPECIALIZED_CAPABILITIES:
@@ -343,6 +348,11 @@ def evaluate_candidate_relevance_gate(
     if has_explicit_ref:
         return True, "Explicit artifact reference passed gate"
 
+    from utils.negation_detector import check_polarity_conflict
+    is_conflict, conflict_reason = check_polarity_conflict(source_text, target_text)
+    if is_conflict:
+        return True, f"Policy conflict candidate: {conflict_reason}"
+
     src_low = source_text.lower()
     tgt_low = target_text.lower()
 
@@ -372,8 +382,8 @@ def evaluate_candidate_relevance_gate(
     actions_b = extract_actions(target_text)
     act_score, act_reason = evaluate_action_alignment(source_text, target_text)
 
-    # 3. Incompatible action rejection
-    if act_score <= 0.10 and not shared_intents:
+    # 3. Incompatible action rejection (e.g. track vs export, reconcile vs refund, approve vs defect)
+    if act_score <= 0.10 and not has_explicit_ref:
         return False, f"Relevance Gate Rejected: {act_reason}"
 
     # 4. Specialized capability mismatch (e.g. detect_dup vs generic capture, history vs dispatch)
@@ -485,8 +495,14 @@ def compute_capability_identity_score(
     cap_score = max(0.0, min(1.0, cap_score))
     
     # Exact capability realization condition:
-    # High action alignment (>= 0.70) AND positive entity alignment (>= 0.50) OR shared domain intents with action >= 0.50
-    is_exact = (action_score >= 0.70 and entity_score >= 0.50) or (bool(shared_intents) and action_score >= 0.50)
+    # High action alignment (>= 0.70) AND positive entity alignment (>= 0.50)
+    # OR shared domain intents with action >= 0.50
+    # OR strong entity overlap (>= 0.55) with hybrid >= 0.30 and neutral/compatible action (>= 0.50)
+    is_exact = (
+        (action_score >= 0.70 and entity_score >= 0.50)
+        or (bool(shared_intents) and action_score >= 0.50)
+        or (entity_score >= 0.55 and hybrid_score >= 0.30 and action_score >= 0.50)
+    )
     
     return round(cap_score, 4), is_exact
 
@@ -504,17 +520,16 @@ def rank_and_disambiguate_candidates(
     if not candidates_evaluations:
         return []
 
-    # Sort key: (not has_missing, is_exact_capability, capability_identity_score, composite_score)
-    sorted_cands = sorted(
-        candidates_evaluations,
-        key=lambda x: (
-            1 if not x.get("has_missing") else 0,
-            1 if x.get("is_exact_capability") else 0,
-            x.get("capability_identity_score", x.get("composite_score", 0.0)),
-            x["composite_score"]
-        ),
-        reverse=True
-    )
+    def _rank_key(c):
+        has_miss = 1 if not c.get("has_missing") else 0
+        is_ex = 1 if c.get("is_exact_capability") else 0
+        cap_id = c.get("capability_identity_score", 0.0)
+        comp = c.get("composite_score", 0.0)
+        # When exact capability exists, prioritize capability identity; otherwise balance capability identity with composite evidence
+        rank_metric = cap_id if is_ex else (0.50 * cap_id + 0.50 * comp)
+        return (has_miss, is_ex, rank_metric, comp)
+
+    sorted_cands = sorted(candidates_evaluations, key=_rank_key, reverse=True)
     top = sorted_cands[0]
     
     if len(sorted_cands) > 1:
