@@ -829,12 +829,22 @@ def analyze_project_documents_traceability(project_documents):
     # 2. SRS -> FRD (IMPLEMENTED_BY)
     # Candidate pool MUST strictly be FUNCTIONAL_SPECIFICATION artifacts from FRD
     srs_functional_list = [s for s in srs_list if s["artifact_type"] == "FUNCTIONAL_REQUIREMENT"]
+    print(f"[TRACEABILITY_DIAG] Total Artifacts: {len(all_artifacts)}")
+    print(f"[TRACEABILITY_DIAG] Tier Counts -> BRD: {len(brd_list)}, SRS: {len(srs_list)} (Functional: {len(srs_functional_list)}), FRD: {len(frd_list)}, US: {len(us_list)}, TC: {len(tc_list)}, CR: {len(cr_list)}, MOM: {len(mom_list)}")
+    if len(srs_functional_list) > 0 and len(frd_list) == 0:
+        print("[TRACEABILITY_WARNING] IMPLEMENTED_BY candidate target pool (FRD) is empty!")
+
+    implemented_by_matches = 0
     for srs in srs_functional_list:
         rels = find_candidate_relationships(srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY", upstream_canonical_map=upstream_canonical_map)
         traceability_relationships.extend(rels)
         for r in rels:
             if r.get("status") in ["MATCHED", "PARTIAL"] and r.get("target_artifact") != "—":
                 upstream_canonical_map[r["target_artifact"]] = srs
+                if r.get("status") == "MATCHED":
+                    implemented_by_matches += 1
+
+    print(f"[TRACEABILITY_DIAG] IMPLEMENTED_BY -> Sources: {len(srs_functional_list)}, Targets: {len(frd_list)}, Matches: {implemented_by_matches}")
 
     # 3. SRS / FRD -> User Story (REALIZED_BY)
     # Candidate pool MUST strictly be USER_STORY artifacts
@@ -963,24 +973,27 @@ def analyze_project_documents_traceability(project_documents):
 
         # Step 3: User Story
         current_us = None
-        target_for_us = current_frd or current_srs
-        if target_for_us:
-            rel_us = canonical_rel_map.get((target_for_us["artifact_id"], "REALIZED_BY")) or canonical_rel_map.get(target_for_us["artifact_id"])
-            if rel_us:
-                matched_us_art = next((u for u in us_list if u["artifact_id"] == rel_us["target_artifact"]), None)
-                if matched_us_art:
-                    chain["user_story"] = {
-                        "id": matched_us_art["artifact_id"],
-                        "name": matched_us_art["document_name"],
-                        "text": matched_us_art["text"]
-                    }
-                    chain["evidence_chain"].append(f"FRD→US [{rel_us['status']}]: {rel_us['evidence']}")
-                    current_us = matched_us_art
+        rel_us = None
+        if current_frd:
+            rel_us = canonical_rel_map.get((current_frd["artifact_id"], "REALIZED_BY")) or canonical_rel_map.get(current_frd["artifact_id"])
+        if not rel_us and current_srs:
+            rel_us = canonical_rel_map.get((current_srs["artifact_id"], "REALIZED_BY")) or canonical_rel_map.get(current_srs["artifact_id"])
+
+        if rel_us:
+            matched_us_art = next((u for u in us_list if u["artifact_id"] == rel_us["target_artifact"]), None)
+            if matched_us_art:
+                chain["user_story"] = {
+                    "id": matched_us_art["artifact_id"],
+                    "name": matched_us_art["document_name"],
+                    "text": matched_us_art["text"]
+                }
+                hop_src = "FRD" if (current_frd and canonical_rel_map.get((current_frd["artifact_id"], "REALIZED_BY"))) else "SRS"
+                chain["evidence_chain"].append(f"{hop_src}→US [{rel_us['status']}]: {rel_us['evidence']}")
+                current_us = matched_us_art
 
         # Step 4: Test Case
-        target_for_tc = current_us or current_frd or current_srs
-        if target_for_tc:
-            rel_tc = canonical_rel_map.get((target_for_tc["artifact_id"], "VERIFIED_BY")) or canonical_rel_map.get(target_for_tc["artifact_id"])
+        if current_us:
+            rel_tc = canonical_rel_map.get((current_us["artifact_id"], "VERIFIED_BY")) or canonical_rel_map.get(current_us["artifact_id"])
             if rel_tc:
                 matched_tc_art = next((t for t in tc_list if t["artifact_id"] == rel_tc["target_artifact"]), None)
                 if matched_tc_art:
@@ -991,11 +1004,31 @@ def analyze_project_documents_traceability(project_documents):
                     }
                     chain["evidence_chain"].append(f"US→TC [{rel_tc['status']}]: {rel_tc['evidence']}")
 
-        # Determine overall chain status from canonical edges only
+        # Determine overall chain status from canonical edges only (Strict Chain Truth)
         chain_statuses = [ev.split('[')[1].split(']')[0] for ev in chain["evidence_chain"] if '[' in ev]
+        
+        # Check required tiers based on what tiers are actually present in the uploaded project
+        required_tiers_missing = []
+        if brd_list and chain["brd"] is None:
+            required_tiers_missing.append("BRD")
+        if srs_list and chain["srs"] is None:
+            required_tiers_missing.append("SRS")
+        if frd_list and chain["frd"] is None:
+            required_tiers_missing.append("FRD")
+        if us_list and chain["user_story"] is None:
+            required_tiers_missing.append("USER_STORY")
+        if tc_list and chain["test_case"] is None:
+            required_tiers_missing.append("TEST_CASE")
+
         if "CONFLICT" in chain_statuses:
             overall = "CONFLICT"
-        elif chain_statuses and all(st == "MATCHED" for st in chain_statuses) and len(chain_statuses) >= 2:
+        elif required_tiers_missing:
+            # If any mandatory hop in the uploaded project is missing, chain CANNOT be MATCHED
+            if any(st in ["MATCHED", "PARTIAL"] for st in chain_statuses):
+                overall = "PARTIAL"
+            else:
+                overall = "UNMAPPED"
+        elif chain_statuses and all(st == "MATCHED" for st in chain_statuses) and len(chain_statuses) >= 1:
             overall = "MATCHED"
         elif any(st in ["MATCHED", "PARTIAL"] for st in chain_statuses):
             overall = "PARTIAL"

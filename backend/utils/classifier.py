@@ -20,10 +20,10 @@ TITLE_PATTERNS = {
         r"\b(?:business\s+requirements?(?:\s+document)?|business\s+needs?|business\s+goals?|business\s+objectives?|business\s+capabilities|operational\s+requirements?|operational\s+needs?|operational\s+concept|concept\s+of\s+operations?|enterprise\s+requirements?|stakeholder\s+requirements?|market\s+requirements?(?:\s+document)?|brd)\b",
     ],
     "SRS": [
-        r"\b(?:software\s+requirements?(?:\s+specification)?|system\s+requirements?(?:\s+specification)?|system\s+specification|technical\s+requirements?(?:\s+document)?|system\s+capabilities|platform\s+requirements?|engineering\s+requirements?|system\s+behavior(?:\s+specification)?|software\s+specification|srs)\b",
+        r"\b(?:software\s+requirements?(?:\s+specification)?|system\s+requirements?(?:\s+specification)?|system\s+specification|technical\s+requirements?(?:\s+document)?|platform\s+requirements?|engineering\s+requirements?|system\s+behavior(?:\s+specification)?|software\s+specification|srs)\b",
     ],
     "FRD": [
-        r"\b(?:functional\s+requirements?(?:\s+document)?|functional\s+specifications?|functional\s+design(?:\s+document)?|functional\s+capabilities|system\s+design\s+capabilities|subsystem\s+design|detailed\s+design(?:\s+document)?|technical\s+design(?:\s+document)?|component\s+architecture|subsystem\s+architecture|functional\s+architecture|module\s+specifications?|frd|fdd)\b",
+        r"\b(?:functional\s+requirements?(?:\s+document)?|functional\s+specifications?|functional\s+design(?:\s+document)?|functional\s+capabilities(?:\s+document)?|capabilities\s+specification|capabilities\s+document|system\s+design\s+capabilities|system\s+architecture(?:\s+document)?|architecture\s+document|architecture\s+specification|subsystem\s+design(?:\s+document)?|detailed\s+design(?:\s+document)?|technical\s+design(?:\s+document)?|component\s+architecture|subsystem\s+architecture(?:\s+document)?|functional\s+architecture|module\s+specifications?|frd|fdd)\b",
     ],
     "USER_STORY": [
         r"\b(?:user\s+stor(?:y|ies)(?:\s+backlog)?|agile\s+backlog|sprint\s+backlog|product\s+backlog|user\s+personas?|scrum\s+stories|clinical\s+interface\s+stories|operator\s+stories|client\s+stories|mobile\s+app\s+stories)\b",
