@@ -740,6 +740,22 @@ def analyze_project_documents_traceability(project_documents):
     if all_clean_texts:
         vectorizer.fit(all_clean_texts)
 
+    # ── Fallback: re-classify UNKNOWN artifacts by content so no artifacts are lost ──
+    # This handles cases where a document was classified UNKNOWN upstream, but its
+    # individual artifact texts contain enough signal to determine the correct tier.
+    unknown_arts = [a for a in all_artifacts if a["document_type"] == "UNKNOWN" and a["artifact_type"] == "UNKNOWN"]
+    if unknown_arts:
+        from utils.classifier import classify_document as _clf
+        for art in unknown_arts:
+            if not art["text"].strip():
+                continue
+            inferred_type, inferred_conf, _ = _clf(art["text"])
+            if inferred_type != "UNKNOWN" and inferred_conf >= 20.0:
+                from utils.extractor import determine_canonical_artifact_type as _dcat
+                new_art_type, new_doc_type = _dcat(art["artifact_id"], inferred_type)
+                art["document_type"] = new_doc_type
+                art["artifact_type"] = new_art_type
+
     # Artifact collections by standard tiers
     brd_list = [a for a in all_artifacts if a["document_type"] == "BRD" or a["artifact_type"] == "BRD_REQUIREMENT"]
     srs_list = [a for a in all_artifacts if a["document_type"] == "SRS" or a["artifact_type"] in ["FUNCTIONAL_REQUIREMENT", "NON_FUNCTIONAL_REQUIREMENT"]]

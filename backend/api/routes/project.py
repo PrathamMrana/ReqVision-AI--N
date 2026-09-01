@@ -196,11 +196,29 @@ def verify_project_traceability():
             
         # Ensure artifacts are extracted for any document that might only have content
         for doc in documents:
+            content = doc.get('content') or doc.get('text') or ""
+            doc_type = doc.get('document_type') or "UNKNOWN"
+
+            # Re-classify UNKNOWN documents using content — handles cases where
+            # the frontend sent the initial detect result but classification failed
+            if doc_type == "UNKNOWN" and content.strip():
+                reclassified_type, reclassified_conf, _ = classify_document(
+                    content, doc.get('filename') or ""
+                )
+                if reclassified_type != "UNKNOWN":
+                    doc['document_type'] = reclassified_type
+                    doc_type = reclassified_type
+
             if not doc.get('artifacts'):
                 doc_id = doc.get('document_id') or doc.get('id') or str(uuid.uuid4())
-                doc_type = doc.get('document_type') or "SRS"
-                content = doc.get('content') or doc.get('text') or ""
                 doc['artifacts'] = extract_artifacts(doc_id, doc_type, content)
+            elif doc_type != "UNKNOWN":
+                # Re-canonicalize artifacts from a previously UNKNOWN doc that's now classified
+                doc_id = doc.get('document_id') or doc.get('id') or str(uuid.uuid4())
+                existing_arts = doc.get('artifacts', [])
+                any_unknown = any(a.get('document_type', 'UNKNOWN') == 'UNKNOWN' for a in existing_arts)
+                if any_unknown and content.strip():
+                    doc['artifacts'] = extract_artifacts(doc_id, doc_type, content)
                 
         # Run the comprehensive Traceability Engine
         result = analyze_project_documents_traceability(documents)
