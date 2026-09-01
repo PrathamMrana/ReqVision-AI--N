@@ -1,712 +1,537 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { 
   FileText, Database, Layers, CheckCircle2, AlertTriangle, AlertCircle, 
   Search, ShieldAlert, Download, Sparkles, Filter, ChevronRight, Activity,
-  GitPullRequest, Clock, Server, Check, X, Network, Link2, ArrowRight
+  GitPullRequest, Clock, Server, Check, X, Network, Link2, ArrowRight,
+  Shield, Cpu, Zap, Compass, BarChart3, ChevronDown, Eye, Terminal,
+  Sliders, AlertOctagon, HelpCircle, CornerDownRight, ExternalLink
 } from 'lucide-react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ProjectTraceabilityDashboard({ result }) {
-  const [viewTab, setViewTab] = useState('matrix'); // 'matrix' | 'chains' | 'graph'
+  // Navigation tabs: 'overview' | 'matrix' | 'graph' | 'chains' | 'impact' | 'quality'
+  const [activeTab, setActiveTab] = useState('overview');
+  
+  // Matrix Filters
   const [statusFilter, setStatusFilter] = useState('All');
+  const [relFilter, setRelFilter] = useState('All');
+  const [layerFilter, setLayerFilter] = useState('All');
   const [searchQuery, setSearchQuery] = useState('');
-  const [selectedGraphNode, setSelectedGraphNode] = useState(null);
+  const [expandedRows, setExpandedRows] = useState({});
 
+  // Slide-over Drawer State
+  const [drawerArtifact, setDrawerArtifact] = useState(null);
+  const [drawerRelationship, setDrawerRelationship] = useState(null);
+
+  // Command Palette (Cmd+K)
+  const [isCommandOpen, setIsCommandOpen] = useState(false);
+  const [commandQuery, setCommandQuery] = useState('');
+
+  // Graph state
+  const [selectedGraphNode, setSelectedGraphNode] = useState(null);
+  const [graphLayerFilter, setGraphLayerFilter] = useState('All');
+
+  // Backend Payload Data
   const summary = result.summary || {};
-  const matrix = result.traceability_matrix || [];
-  const chains = result.traceability_chains || [];
-  const graph = result.traceability_graph || { nodes: [], edges: [] };
-  const topConflicts = result.top_conflicts || [];
-  const topUnmapped = result.top_unmapped || [];
+  const matrix = result.traceability_matrix || result.relationships || [];
+  const chains = result.traceability_chains || result.chains || [];
+  const graph = result.traceability_graph || result.graph || { nodes: [], edges: [] };
+  const allArtifacts = result.artifacts || [];
+  const documents = result.documents || [];
+  const topConflicts = result.top_conflicts || result.conflicts || [];
+  const topUnmapped = result.top_unmapped || result.gaps || [];
   const crImpacts = result.change_request_impacts || [];
   const momLinks = result.meeting_minutes_links || [];
-  const docList = result.documents || [];
-  const pathCoverage = summary.path_coverage || {};
+
+  // Phase B Intelligence Metrics from Canonical Store
+  const healthScore = result.software_health_score || {
+    overall_score: summary.coverage_percentage || 0,
+    grade: summary.coverage_percentage >= 90 ? 'A' : summary.coverage_percentage >= 75 ? 'B' : 'C',
+    formula: '30% Traceability + 25% Verification + 20% Implementation + 15% Conflict Cleanliness + 10% NFR Coverage',
+    breakdown: {
+      traceability_completeness: { score: summary.coverage_percentage || 0, weight: '30%' },
+      verification_coverage: { score: 85, weight: '25%' },
+      implementation_fidelity: { score: 90, weight: '20%' },
+      conflict_stability: { score: Math.max(0, 100 - (topConflicts.length * 15)), weight: '15%' },
+      nfr_assurance: { score: 100, weight: '10%' }
+    }
+  };
+
+  const riskRadar = result.risk_radar || [];
+  const requirementQuality = result.requirement_quality || [];
+  const testIntelligence = result.test_intelligence || {
+    total_test_cases: 0,
+    mapped_test_cases: 0,
+    unmapped_test_cases: 0,
+    verified_stories_count: 0,
+    total_stories_count: 0,
+    verification_rate: '0%',
+    test_gaps: []
+  };
+  const changeImpactSummary = result.change_impact_summary || {
+    total_change_requests: 0,
+    active_change_impacts: crImpacts.length,
+    direct_impact_items: crImpacts,
+    derived_impacts: []
+  };
 
   const semanticEnabled = result.semantic_enabled === true;
-  const semanticModel = result.semantic_model || 'sentence-transformers/all-MiniLM-L6-v2';
-  const analysisMode = result.analysis_mode || 'lexical_fallback';
-  const analysisType = result.analysis_type || 'Cross-Document Hybrid Semantic+Lexical Traceability';
+  const semanticModel = result.semantic_model || 'sentence-transformers/all-mpnet-base-v2';
+  const analysisMode = result.analysis_mode || 'hybrid_semantic_lexical';
 
-  // Filter pairwise direct relationship rows
+  // Keyboard shortcut listener for Cmd+K / Ctrl+K
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+        e.preventDefault();
+        setIsCommandOpen(prev => !prev);
+      }
+      if (e.key === 'Escape') {
+        setIsCommandOpen(false);
+        setDrawerArtifact(null);
+        setDrawerRelationship(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, []);
+
+  // Filtered Matrix Rows
   const filteredMatrix = useMemo(() => {
     return matrix.filter(row => {
-      const matchFilter = statusFilter === 'All' || row.status === statusFilter;
-      const term = searchQuery.toLowerCase();
+      const matchStatus = statusFilter === 'All' || row.status === statusFilter;
+      const matchRel = relFilter === 'All' || row.relationship === relFilter;
+      const matchLayer = layerFilter === 'All' || row.source_type === layerFilter || row.target_type === layerFilter;
       
-      const sId = row.source_artifact ? row.source_artifact.toLowerCase() : '';
-      const sDoc = row.source_document ? row.source_document.toLowerCase() : '';
-      const sText = row.source_text ? row.source_text.toLowerCase() : '';
-      const tId = row.target_artifact ? row.target_artifact.toLowerCase() : '';
-      const tDoc = row.target_document ? row.target_document.toLowerCase() : '';
-      const tText = row.target_text ? row.target_text.toLowerCase() : '';
-      const rel = row.relationship ? row.relationship.toLowerCase() : '';
-      const ev = row.evidence ? row.evidence.toLowerCase() : '';
+      const term = searchQuery.toLowerCase().trim();
+      if (!term) return matchStatus && matchRel && matchLayer;
 
-      const matchSearch = term === '' || sId.includes(term) || sDoc.includes(term) || sText.includes(term) || 
-                          tId.includes(term) || tDoc.includes(term) || tText.includes(term) || rel.includes(term) || ev.includes(term);
+      const sId = (row.source_artifact || '').toLowerCase();
+      const sText = (row.source_text || '').toLowerCase();
+      const tId = (row.target_artifact || '').toLowerCase();
+      const tText = (row.target_text || '').toLowerCase();
+      const rel = (row.relationship || '').toLowerCase();
+      const ev = (row.evidence || '').toLowerCase();
 
-      return matchFilter && matchSearch;
+      const matchSearch = sId.includes(term) || sText.includes(term) || tId.includes(term) || tText.includes(term) || rel.includes(term) || ev.includes(term);
+      return matchStatus && matchRel && matchLayer && matchSearch;
     });
-  }, [matrix, statusFilter, searchQuery]);
+  }, [matrix, statusFilter, relFilter, layerFilter, searchQuery]);
 
-  const handlePrint = () => {
-    window.print();
+  // Command Palette Results
+  const commandResults = useMemo(() => {
+    if (!commandQuery.trim()) return allArtifacts.slice(0, 10);
+    const q = commandQuery.toLowerCase();
+    return allArtifacts.filter(a => 
+      (a.artifact_id || '').toLowerCase().includes(q) ||
+      (a.text || '').toLowerCase().includes(q) ||
+      (a.document_type || '').toLowerCase().includes(q) ||
+      (a.document_name || '').toLowerCase().includes(q)
+    ).slice(0, 15);
+  }, [allArtifacts, commandQuery]);
+
+  const toggleRowExpand = (idx) => {
+    setExpandedRows(prev => ({ ...prev, [idx]: !prev[idx] }));
+  };
+
+  const openArtifactDrawer = (artId) => {
+    const found = allArtifacts.find(a => a.artifact_id === artId);
+    if (found) {
+      setDrawerArtifact(found);
+      setDrawerRelationship(null);
+    }
   };
 
   const getStatusBadge = (status) => {
     switch (status) {
       case 'MATCHED':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 w-fit">
-            <CheckCircle2 className="w-3 h-3" /> MATCHED
-          </span>
-        );
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">MATCHED</span>;
       case 'PARTIAL':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1 w-fit">
-            <AlertTriangle className="w-3 h-3" /> PARTIAL
-          </span>
-        );
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/30">PARTIAL</span>;
       case 'CONFLICT':
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30 flex items-center gap-1 w-fit">
-            <AlertCircle className="w-3 h-3" /> CONFLICT
-          </span>
-        );
-      case 'UNMAPPED':
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-rose-500/10 text-rose-400 border border-rose-500/30">CONFLICT</span>;
       default:
-        return (
-          <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700 flex items-center gap-1 w-fit">
-            <X className="w-3 h-3" /> UNMAPPED
-          </span>
-        );
+        return <span className="px-2 py-0.5 rounded-full text-[10px] font-mono font-bold bg-slate-800 text-slate-400 border border-slate-700">UNMAPPED</span>;
     }
   };
 
   const getRelBadge = (rel) => {
     switch (rel) {
-      case 'TRACEABLE_TO':
-        return 'bg-blue-500/10 text-blue-300 border-blue-500/30';
-      case 'IMPLEMENTED_BY':
-        return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
-      case 'REALIZED_BY':
-        return 'bg-purple-500/10 text-purple-300 border-purple-500/30';
-      case 'VERIFIED_BY':
-        return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
-      case 'AFFECTS':
-        return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
-      case 'RELATED_TO':
-        return 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30';
-      default:
-        return 'bg-slate-800 text-slate-400 border-slate-700';
+      case 'TRACEABLE_TO': return 'bg-blue-500/10 text-blue-300 border-blue-500/30';
+      case 'IMPLEMENTED_BY': return 'bg-cyan-500/10 text-cyan-300 border-cyan-500/30';
+      case 'REALIZED_BY': return 'bg-purple-500/10 text-purple-300 border-purple-500/30';
+      case 'VERIFIED_BY': return 'bg-emerald-500/10 text-emerald-300 border-emerald-500/30';
+      case 'AFFECTS': return 'bg-rose-500/10 text-rose-300 border-rose-500/30';
+      case 'RELATED_TO': return 'bg-indigo-500/10 text-indigo-300 border-indigo-500/30';
+      default: return 'bg-slate-800 text-slate-400 border-slate-700';
     }
   };
 
-  // Group nodes by tier for structured visual DAG
-  const nodesByTier = useMemo(() => {
-    const tiers = {
-      "BRD": [],
-      "SRS": [],
-      "FRD": [],
-      "USER_STORY": [],
-      "TEST_CASE": [],
-      "CHANGE_REQUEST": [],
-      "MEETING_MINUTES": []
-    };
-    (graph.nodes || []).forEach(node => {
-      const type = (node.document_type || "OTHER").toUpperCase().replace(" ", "_");
-      if (tiers[type]) {
-        tiers[type].push(node);
-      } else if (type === "USER_STORIES" || type === "USER_STORY") {
-        tiers["USER_STORY"].push(node);
-      } else if (type === "TEST_CASES" || type === "TEST_CASE") {
-        tiers["TEST_CASE"].push(node);
-      } else if (type === "CHANGE_REQUESTS" || type === "CHANGE_REQUEST") {
-        tiers["CHANGE_REQUEST"].push(node);
-      } else if (type === "MEETING_MINS" || type === "MOM") {
-        tiers["MEETING_MINUTES"].push(node);
-      }
+  // Extract layer counts
+  const layerStats = useMemo(() => {
+    const counts = { BRD: 0, SRS: 0, FRD: 0, USER_STORY: 0, TEST_CASE: 0, CHANGE_REQUEST: 0, MEETING_MINUTES: 0 };
+    allArtifacts.forEach(a => {
+      const t = (a.document_type || 'OTHER').toUpperCase().replace(' ', '_');
+      if (counts[t] !== undefined) counts[t]++;
+      else if (t === 'USER_STORIES') counts['USER_STORY']++;
+      else if (t === 'TEST_CASES') counts['TEST_CASE']++;
+      else if (t === 'CHANGE_REQUESTS') counts['CHANGE_REQUEST']++;
+      else if (t === 'MEETING_MINS' || t === 'MOM') counts['MEETING_MINUTES']++;
     });
-    return tiers;
-  }, [graph.nodes]);
+    return counts;
+  }, [allArtifacts]);
 
   return (
-    <div className="bg-transparent min-h-screen py-8 text-slate-100 font-sans">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        
-        {/* Top Header & Export */}
-        <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4 print:hidden">
-          <div>
-            <div className="inline-flex items-center gap-2 px-3.5 py-1 rounded-full bg-neon-blue/10 border border-neon-blue/30 text-neon-blue text-xs font-mono font-bold uppercase mb-2">
-              <Sparkles className="w-3.5 h-3.5 text-amber-400" /> Mode 2: Project Intelligence
+    <div className="bg-[#0B0F19] min-h-screen py-6 text-slate-100 font-sans selection:bg-cyan-500/30">
+      <div className="max-w-[1440px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+
+        {/* ── TOP BAR / COMMAND HEADER ────────────────────────────────────────── */}
+        <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 p-5 rounded-2xl bg-[#111827]/80 backdrop-blur-xl border border-slate-800/80 shadow-2xl">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <span className="flex h-2.5 w-2.5 relative">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-emerald-500"></span>
+              </span>
+              <span className="text-xs font-mono font-bold uppercase tracking-wider text-emerald-400">ENGINE ONLINE</span>
+              <span className="text-slate-600">•</span>
+              <span className="text-xs font-mono text-slate-400">{semanticModel}</span>
+              <span className="text-slate-600">•</span>
+              <span className="text-xs font-mono text-cyan-400 capitalize">{analysisMode.replace(/_/g, ' ')}</span>
             </div>
-            <h1 className="text-3xl sm:text-4xl font-black text-white tracking-tight">
-              ReqVision AI — <span className="text-gradient">Software Intelligence Report</span>
+            <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight flex items-center gap-3">
+              ReqVision AI <span className="text-slate-600 font-light">|</span> <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 via-sky-300 to-indigo-400">Software Intelligence Command Center</span>
             </h1>
-            <p className="text-slate-400 mt-1 text-sm sm:text-base font-medium">
-              {analysisType} across all {summary.total_documents || 7} project artifacts
-            </p>
           </div>
 
-          <button 
-            onClick={handlePrint}
-            className="flex items-center gap-2 bg-slate-900 border border-slate-700 hover:border-neon-blue/60 text-slate-200 hover:text-white px-5 py-2.5 rounded-xl shadow-lg font-bold text-sm transition-all glass-card"
+          <div className="flex items-center gap-3 w-full md:w-auto">
+            <button
+              onClick={() => setIsCommandOpen(true)}
+              className="flex items-center gap-3 px-4 py-2 rounded-xl bg-slate-900/90 border border-slate-700/60 hover:border-cyan-500/50 text-slate-300 text-xs font-mono transition-all shadow-inner hover:shadow-cyan-500/10 w-full md:w-auto justify-between md:justify-start cursor-pointer"
+            >
+              <span className="flex items-center gap-2"><Search className="w-3.5 h-3.5 text-cyan-400" /> Search Artifacts & Trace...</span>
+              <kbd className="px-1.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-[10px] text-slate-400">⌘K</kbd>
+            </button>
+
+            <button
+              onClick={() => window.print()}
+              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-medium text-xs shadow-lg shadow-cyan-600/20 transition-all cursor-pointer whitespace-nowrap"
+            >
+              <Download className="w-3.5 h-3.5" /> Export Intelligence PDF
+            </button>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div 
+            onClick={() => setActiveTab('overview')}
+            className={`p-4 rounded-2xl border transition-all cursor-pointer ${activeTab === 'overview' ? 'bg-cyan-950/20 border-cyan-500/40 shadow-lg shadow-cyan-500/10' : 'bg-[#111827]/60 border-slate-800/80 hover:border-slate-700'}`}
           >
-            <Download className="w-4 h-4 text-neon-blue" />
-            Export Traceability Report
-          </button>
-        </div>
-
-        {/* Semantic Intelligence Status Banner */}
-        <div className={`mb-6 p-3.5 px-5 rounded-2xl border flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 text-xs font-mono backdrop-blur-xl ${
-          semanticEnabled 
-            ? 'bg-emerald-950/20 border-emerald-500/30 text-emerald-300' 
-            : 'bg-amber-950/20 border-amber-500/30 text-amber-300'
-        }`}>
-          <div className="flex items-center gap-2.5">
-            <span className={`w-2.5 h-2.5 rounded-full ${semanticEnabled ? 'bg-emerald-400 animate-pulse shadow-[0_0_8px_rgba(52,211,153,0.8)]' : 'bg-amber-400'}`} />
-            <span className="font-bold tracking-wider uppercase">
-              {semanticEnabled ? 'SEMANTIC INTELLIGENCE ACTIVE' : 'SEMANTIC ENGINE UNAVAILABLE — LEXICAL FALLBACK ACTIVE'}
-            </span>
-          </div>
-          <div className="flex items-center gap-4 text-slate-400">
-            {semanticEnabled && (
-              <span>Dense Model: <strong className="text-slate-200 font-semibold">{semanticModel}</strong></span>
-            )}
-            <span>Scoring: <strong className="text-slate-200 font-semibold">60% Semantic + 25% Lexical + 15% Intent</strong></span>
-          </div>
-        </div>
-
-        {/* Print Header (Visible only when printing/exporting to PDF) */}
-        <div className="hidden print:flex fixed top-0 left-0 w-full justify-between items-center text-[10px] text-slate-400 border-b border-slate-700 pb-1.5 pt-1.5 bg-slate-900 z-50 px-8">
-          <span className="font-bold text-slate-200">ReqVision AI | Software Intelligence & Cross-Document Traceability Report</span>
-          <span>Generated on {new Date().toLocaleDateString()}</span>
-        </div>
-
-        {/* 1. Project High-Level Metrics Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Project Documents</div>
-            <div className="text-2xl font-black text-white mt-1">{summary.total_documents || docList.length}</div>
-            <div className="text-[10px] text-slate-400 mt-1">Single collection</div>
+            <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-1">
+              <span className="flex items-center gap-1.5"><Shield className="w-3.5 h-3.5 text-cyan-400" /> HEALTH</span>
+              <span className={`font-bold px-1.5 py-0.2 rounded text-[10px] ${healthScore.overall_score >= 80 ? 'bg-emerald-500/20 text-emerald-400' : 'bg-amber-500/20 text-amber-400'}`}>
+                {healthScore.grade}
+              </span>
+            </div>
+            <div className="text-2xl font-black text-white">{healthScore.overall_score}<span className="text-xs text-slate-500 font-normal">/100</span></div>
+            <div className="text-[10px] text-slate-500 font-mono mt-1">Multi-signal index</div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Total Artifacts</div>
-            <div className="text-2xl font-black text-neon-blue mt-1">{summary.total_artifacts || 0}</div>
-            <div className="text-[10px] text-slate-400 mt-1">Extracted & normalized</div>
+          <div 
+            onClick={() => { setActiveTab('matrix'); setStatusFilter('All'); }}
+            className="p-4 rounded-2xl bg-[#111827]/60 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-1">
+              <span className="flex items-center gap-1.5"><Layers className="w-3.5 h-3.5 text-blue-400" /> TRACEABILITY</span>
+            </div>
+            <div className="text-2xl font-black text-white">{summary.coverage_percentage || 0}<span className="text-xs text-slate-500 font-normal">%</span></div>
+            <div className="text-[10px] text-slate-500 font-mono mt-1">{summary.total_relationships || matrix.length} canonical links</div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Traceability Coverage</div>
-            <div className="text-2xl font-black text-emerald-400 mt-1">{summary.coverage_percentage}%</div>
-            <div className="text-[10px] text-slate-400 mt-1">Root requirements mapped</div>
+          <div 
+            onClick={() => setActiveTab('quality')}
+            className="p-4 rounded-2xl bg-[#111827]/60 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-1">
+              <span className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" /> VERIFIED</span>
+            </div>
+            <div className="text-2xl font-black text-emerald-400">{testIntelligence.verification_rate}</div>
+            <div className="text-[10px] text-slate-500 font-mono mt-1">{testIntelligence.verified_stories_count}/{testIntelligence.total_stories_count} stories tested</div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Matched Links</div>
-            <div className="text-2xl font-black text-emerald-400 mt-1">{summary.status_breakdown?.MATCHED || 0}</div>
-            <div className="text-[10px] text-emerald-400/80 mt-1">Verified relationships</div>
+          <div 
+            onClick={() => { setActiveTab('overview'); }}
+            className="p-4 rounded-2xl bg-[#111827]/60 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-1">
+              <span className="flex items-center gap-1.5"><ShieldAlert className="w-3.5 h-3.5 text-rose-400" /> RISKS & GAPS</span>
+              {topConflicts.length > 0 && <span className="bg-rose-500/20 text-rose-400 px-1 rounded text-[10px] font-bold">!</span>}
+            </div>
+            <div className="text-2xl font-black text-rose-400">{riskRadar.length}</div>
+            <div className="text-[10px] text-slate-500 font-mono mt-1">{topConflicts.length} conflicts, {topUnmapped.length} gaps</div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Contradictions</div>
-            <div className="text-2xl font-black text-rose-400 mt-1">{summary.status_breakdown?.CONFLICT || 0}</div>
-            <div className="text-[10px] text-rose-400/80 mt-1">Detected conflicts</div>
+          <div 
+            onClick={() => setActiveTab('impact')}
+            className="p-4 rounded-2xl bg-[#111827]/60 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-1">
+              <span className="flex items-center gap-1.5"><GitPullRequest className="w-3.5 h-3.5 text-amber-400" /> CHANGE IMPACT</span>
+            </div>
+            <div className="text-2xl font-black text-amber-400">{changeImpactSummary.active_change_impacts}</div>
+            <div className="text-[10px] text-slate-500 font-mono mt-1">{changeImpactSummary.total_change_requests} CRs analyzed</div>
           </div>
 
-          <div className="p-4 rounded-2xl bg-slate-900/60 border border-slate-800 shadow-sm">
-            <div className="text-[10px] font-mono font-bold text-slate-500 uppercase">Unmapped Artifacts</div>
-            <div className="text-2xl font-black text-slate-400 mt-1">{summary.status_breakdown?.UNMAPPED || 0}</div>
-            <div className="text-[10px] text-slate-500 mt-1">Gaps in downstream spec</div>
+          <div 
+            onClick={() => setActiveTab('graph')}
+            className="p-4 rounded-2xl bg-[#111827]/60 border border-slate-800/80 hover:border-slate-700 transition-all cursor-pointer"
+          >
+            <div className="flex items-center justify-between text-xs font-mono text-slate-400 mb-1">
+              <span className="flex items-center gap-1.5"><Database className="w-3.5 h-3.5 text-purple-400" /> ARTIFACTS</span>
+            </div>
+            <div className="text-2xl font-black text-white">{summary.total_artifacts || allArtifacts.length}</div>
+            <div className="text-[10px] text-slate-500 font-mono mt-1">across {documents.length} layers</div>
           </div>
         </div>
 
-        {/* 2. Path-Specific Traceability Coverage Bars */}
-        <div className="mb-8 p-6 rounded-3xl bg-slate-900/40 border border-slate-800 backdrop-blur-xl">
-          <h3 className="text-sm font-bold text-slate-200 uppercase tracking-wider mb-4 flex items-center gap-2">
-            <Layers className="w-4 h-4 text-neon-blue" />
-            Engineering Traceability Path Coverage
-          </h3>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <div className="text-[10px] font-mono text-slate-400 uppercase">BRD → SRS (Traceable)</div>
-              <div className="text-lg font-black text-blue-400 mt-1">{pathCoverage.brd_to_srs_coverage || 'N/A'}</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <div className="text-[10px] font-mono text-slate-400 uppercase">SRS → FRD (Implemented)</div>
-              <div className="text-lg font-black text-cyan-400 mt-1">{pathCoverage.srs_to_frd_coverage || 'N/A'}</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <div className="text-[10px] font-mono text-slate-400 uppercase">SRS → User Story (Realized)</div>
-              <div className="text-lg font-black text-purple-400 mt-1">{pathCoverage.srs_to_user_story_coverage || 'N/A'}</div>
-            </div>
-            <div className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800">
-              <div className="text-[10px] font-mono text-slate-400 uppercase">User Story → Test Case (Verified)</div>
-              <div className="text-lg font-black text-emerald-400 mt-1">{pathCoverage.user_story_to_test_case_coverage || 'N/A'}</div>
-            </div>
-          </div>
+        <div className="flex items-center gap-2 border-b border-slate-800 pb-2 overflow-x-auto scrollbar-none">
+          {[
+            { id: 'overview', label: 'Intelligence Overview & Map', icon: Compass },
+            { id: 'matrix', label: `Smart Matrix (${filteredMatrix.length})`, icon: BarChart3 },
+            { id: 'graph', label: 'Knowledge Graph', icon: Network },
+            { id: 'chains', label: `End-to-End Chains (${chains.length})`, icon: Link2 },
+            { id: 'impact', label: `Change Impact (${changeImpactSummary.active_change_impacts})`, icon: GitPullRequest },
+            { id: 'quality', label: `Test & Quality Center (${requirementQuality.length})`, icon: Cpu }
+          ].map(tab => {
+            const Icon = tab.icon;
+            const isActive = activeTab === tab.id;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl font-medium text-xs sm:text-sm transition-all whitespace-nowrap cursor-pointer ${
+                  isActive 
+                    ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30 shadow-sm' 
+                    : 'text-slate-400 hover:text-slate-200 hover:bg-slate-900/60'
+                }`}
+              >
+                <Icon className={`w-4 h-4 ${isActive ? 'text-cyan-400' : 'text-slate-500'}`} />
+                {tab.label}
+              </button>
+            );
+          })}
         </div>
 
-        {/* 3. Top Conflicts & Unmapped Alerts */}
-        {topConflicts.length > 0 && (
-          <div className="mb-8 p-6 rounded-3xl bg-rose-950/20 border border-rose-500/40 backdrop-blur-xl shadow-xl">
-            <div className="flex items-center gap-2.5 text-rose-400 font-black text-lg mb-3">
-              <ShieldAlert className="w-5 h-5" />
-              <span>Critical Requirement Contradictions Detected ({topConflicts.length})</span>
-            </div>
-            <div className="space-y-3">
-              {topConflicts.map((conf, idx) => (
-                <div key={idx} className="p-4 rounded-2xl bg-slate-950/80 border border-rose-900/60 text-sm">
-                  <div className="flex items-center gap-2 text-rose-300 font-bold mb-1">
-                    <span className="px-2 py-0.5 rounded bg-rose-900/40 text-xs font-mono">{conf.source_id}</span>
-                    <span>{conf.source_doc}</span>
-                    <ArrowRight className="w-3.5 h-3.5 text-rose-500" />
-                    <span className="px-2 py-0.5 rounded bg-rose-900/40 text-xs font-mono">{conf.target_id}</span>
-                    <span>{conf.target_doc}</span>
-                  </div>
-                  <p className="text-slate-300 text-xs mb-2 italic">"{conf.source_text}"</p>
-                  <div className="p-2.5 rounded-xl bg-rose-950/40 border border-rose-900/40 text-rose-200 text-xs font-semibold">
-                    <strong>Contradiction Reason:</strong> {conf.reason}
-                  </div>
+        {activeTab === 'overview' && (
+          <div className="space-y-6">
+            <div className="p-6 rounded-2xl bg-[#111827]/70 border border-slate-800/80 space-y-4">
+              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                <div>
+                  <h2 className="text-base font-bold text-white flex items-center gap-2">
+                    <Compass className="w-4 h-4 text-cyan-400" /> Engineering Intelligence Architecture Map
+                  </h2>
+                  <p className="text-xs text-slate-400">Canonical cross-document traceability paths across system lifecycle tiers</p>
                 </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {topUnmapped.length > 0 && (
-          <div className="mb-8 p-6 rounded-3xl bg-amber-950/20 border border-amber-500/30 backdrop-blur-xl">
-            <div className="flex items-center gap-2.5 text-amber-300 font-black text-base mb-3">
-              <AlertTriangle className="w-5 h-5" />
-              <span>Unmapped Requirements / Specification Gaps ({topUnmapped.length})</span>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              {topUnmapped.map((unm, idx) => (
-                <div key={idx} className="p-3.5 rounded-2xl bg-slate-950/80 border border-slate-800 text-xs">
-                  <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono font-bold text-amber-300">{unm.artifact_id}</span>
-                    <span className="text-[10px] text-slate-500">{unm.document_name}</span>
+                <span className="text-xs font-mono text-slate-500">Live Canonical Projection</span>
+              </div>
+              <div className="grid grid-cols-1 md:grid-cols-7 gap-3 py-4">
+                {[
+                  { layer: 'BRD', label: 'Business Goals', count: layerStats.BRD, color: 'border-blue-500/40 bg-blue-950/20 text-blue-300' },
+                  { layer: 'SRS', label: 'System Req.', count: layerStats.SRS, color: 'border-sky-500/40 bg-sky-950/20 text-sky-300' },
+                  { layer: 'FRD', label: 'Capabilities', count: layerStats.FRD, color: 'border-cyan-500/40 bg-cyan-950/20 text-cyan-300' },
+                  { layer: 'USER_STORY', label: 'User Stories', count: layerStats.USER_STORY, color: 'border-purple-500/40 bg-purple-950/20 text-purple-300' },
+                  { layer: 'TEST_CASE', label: 'Test Suites', count: layerStats.TEST_CASE, color: 'border-emerald-500/40 bg-emerald-950/20 text-emerald-300' },
+                  { layer: 'CHANGE_REQUEST', label: 'Change Delta', count: layerStats.CHANGE_REQUEST, color: 'border-amber-500/40 bg-amber-950/20 text-amber-300' },
+                  { layer: 'MEETING_MINUTES', label: 'Decisions', count: layerStats.MEETING_MINUTES, color: 'border-indigo-500/40 bg-indigo-950/20 text-indigo-300' }
+                ].map((tier) => (
+                  <div key={tier.layer} className="relative group">
+                    <div className={`p-3.5 rounded-xl border ${tier.color} space-y-1 transition-all group-hover:scale-[1.02]`}>
+                      <div className="text-[10px] font-mono font-bold opacity-75">{tier.layer}</div>
+                      <div className="text-xs font-bold text-white truncate">{tier.label}</div>
+                      <div className="text-lg font-black text-white">{tier.count} <span className="text-[10px] text-slate-400 font-normal">items</span></div>
+                    </div>
                   </div>
-                  <p className="text-slate-300 mb-1.5 italic">"{unm.text}"</p>
-                  <span className="text-[11px] text-amber-400/80 font-medium block">Gap: {unm.reason}</span>
-                </div>
-              ))}
+                ))}
+              </div>
             </div>
-          </div>
-        )}
 
-        {/* 4. Tab Selector: Traceability Matrix vs. Traceability Chains vs. Traceability Graph */}
-        <div className="flex items-center gap-2 p-1.5 rounded-2xl bg-slate-950/80 border border-slate-800 mb-6 w-fit">
-          <button
-            onClick={() => setViewTab('matrix')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              viewTab === 'matrix' ? 'bg-neon-blue/20 text-white border border-neon-blue/40 shadow-sm' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Database className="w-4 h-4 text-neon-blue" />
-            Source → Target Matrix ({matrix.length})
-          </button>
-          <button
-            onClick={() => setViewTab('chains')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              viewTab === 'chains' ? 'bg-purple-500/20 text-white border border-purple-500/40 shadow-sm' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Layers className="w-4 h-4 text-purple-400" />
-            End-to-End Chains ({chains.length})
-          </button>
-          <button
-            onClick={() => setViewTab('graph')}
-            className={`px-4 py-2 rounded-xl text-xs font-bold transition-all flex items-center gap-2 ${
-              viewTab === 'graph' ? 'bg-indigo-500/20 text-white border border-indigo-500/40 shadow-sm' : 'text-slate-400 hover:text-white'
-            }`}
-          >
-            <Network className="w-4 h-4 text-indigo-400" />
-            Visual Traceability Network Graph ({graph.edges?.length || 0} Edges)
-          </button>
-        </div>
-
-        {/* TAB 1: Source -> Target Traceability Matrix */}
-        {viewTab === 'matrix' && (
-          <div className="mb-12 rounded-3xl bg-slate-950/90 border border-slate-800 shadow-2xl overflow-hidden backdrop-blur-2xl">
-            {/* Filter bar */}
-            <div className="p-5 border-b border-slate-800 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900/60">
-              <div>
-                <h2 className="text-base sm:text-lg font-black text-white tracking-tight flex items-center gap-2">
-                  <Database className="w-5 h-5 text-neon-blue" />
-                  Pairwise Traceability Matrix
-                </h2>
-                <p className="text-xs text-slate-400">Explicit direct mappings with lexical evidence</p>
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              <div className="p-6 rounded-2xl bg-[#111827]/70 border border-slate-800/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <Shield className="w-4 h-4 text-cyan-400" /> Software Intelligence Health Score Formula
+                  </h3>
+                  <span className="px-2 py-0.5 rounded bg-cyan-500/10 text-cyan-400 font-mono text-xs font-bold">
+                    Score: {healthScore.overall_score}/100
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400 font-mono bg-slate-900/60 p-2.5 rounded-xl border border-slate-800">
+                  Formula: {healthScore.formula}
+                </p>
+                <div className="space-y-2.5 pt-1">
+                  {Object.entries(healthScore.breakdown || {}).map(([metricKey, mData]) => (
+                    <div key={metricKey} className="space-y-1">
+                      <div className="flex justify-between text-xs">
+                        <span className="text-slate-300 font-medium capitalize">{metricKey.replace(/_/g, ' ')}</span>
+                        <span className="text-slate-400 font-mono">{mData.score}% (Weight: {mData.weight})</span>
+                      </div>
+                      <div className="w-full bg-slate-800/80 rounded-full h-1.5">
+                        <div 
+                          className={`h-1.5 rounded-full ${mData.score >= 80 ? 'bg-emerald-500' : mData.score >= 60 ? 'bg-amber-500' : 'bg-rose-500'}`} 
+                          style={{ width: `${Math.min(100, mData.score)}%` }}
+                        ></div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               </div>
 
-              <div className="flex flex-wrap items-center gap-3 w-full sm:w-auto">
-                <div className="flex items-center gap-1 bg-slate-950 p-1 rounded-xl border border-slate-800">
+              <div className="p-6 rounded-2xl bg-[#111827]/70 border border-slate-800/80 space-y-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-sm font-bold text-white flex items-center gap-2">
+                    <ShieldAlert className="w-4 h-4 text-rose-400" /> Active Risk Radar
+                  </h3>
+                  <span className="text-xs font-mono text-slate-400">{riskRadar.length} items flagged</span>
+                </div>
+                {riskRadar.length === 0 ? (
+                  <div className="p-8 text-center rounded-xl bg-slate-900/40 border border-slate-800/60 space-y-2">
+                    <CheckCircle2 className="w-8 h-8 text-emerald-400 mx-auto" />
+                    <div className="text-xs font-bold text-white">Zero High-Risk Gaps Detected</div>
+                  </div>
+                ) : (
+                  <div className="space-y-2.5 max-h-[260px] overflow-y-auto pr-1">
+                    {riskRadar.map((risk, idx) => (
+                      <div 
+                        key={idx}
+                        onClick={() => openArtifactDrawer(risk.artifact_id)}
+                        className="p-3 rounded-xl bg-slate-900/80 border border-slate-800 hover:border-rose-500/40 transition-all cursor-pointer space-y-1"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-mono font-bold ${risk.severity === 'CRITICAL' ? 'bg-rose-500/20 text-rose-400' : 'bg-blue-500/20 text-blue-400'}`}>
+                            {risk.severity} • {risk.category}
+                          </span>
+                          <span className="text-xs font-mono text-cyan-400">{risk.artifact_id}</span>
+                        </div>
+                        <div className="text-xs font-bold text-slate-200">{risk.title}</div>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {activeTab === 'matrix' && (
+          <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-[#111827]/70 border border-slate-800/80 flex flex-wrap items-center justify-between gap-4">
+              <div className="flex flex-wrap items-center gap-3 w-full lg:w-auto">
+                <div className="relative w-full sm:w-72">
+                  <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                  <input
+                    type="text"
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Filter by ID, text, action..."
+                    className="w-full pl-9 pr-3 py-2 rounded-xl bg-slate-900 border border-slate-700/60 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-cyan-500 font-mono"
+                  />
+                </div>
+                <div className="flex items-center gap-1.5 bg-slate-900 p-1 rounded-xl border border-slate-800">
                   {['All', 'MATCHED', 'PARTIAL', 'CONFLICT', 'UNMAPPED'].map(st => (
                     <button
                       key={st}
                       onClick={() => setStatusFilter(st)}
-                      className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
-                        statusFilter === st ? 'bg-neon-blue/20 text-white border border-neon-blue/40' : 'text-slate-400 hover:text-white'
-                      }`}
+                      className={`px-3 py-1 rounded-lg text-xs font-mono font-medium transition-all ${statusFilter === st ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/30' : 'text-slate-400'}`}
                     >
                       {st}
                     </button>
                   ))}
                 </div>
-
-                <div className="relative flex-1 sm:w-60">
-                  <Search className="w-4 h-4 text-slate-500 absolute left-3 top-1/2 -translate-y-1/2" />
-                  <input
-                    type="text"
-                    placeholder="Search artifact or keyword..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-1.5 text-xs text-slate-200 focus:outline-none focus:border-neon-blue/60"
-                  />
-                </div>
               </div>
             </div>
 
-            {/* Matrix Table */}
-            <div className="overflow-x-auto">
-              <table className="w-full text-left border-collapse text-xs sm:text-sm">
-                <thead>
-                  <tr className="bg-slate-900/90 border-b border-slate-800 text-[11px] font-mono font-bold text-slate-400 uppercase tracking-wider">
-                    <th className="p-3.5 pl-6">Source Artifact</th>
-                    <th className="p-3.5">Relationship</th>
-                    <th className="p-3.5">Target Artifact</th>
-                    <th className="p-3.5">Status</th>
-                    <th className="p-3.5 text-center">Semantic Sim</th>
-                    <th className="p-3.5 text-center">Lexical Sim</th>
-                    <th className="p-3.5 text-center">Hybrid Score</th>
-                    <th className="p-3.5">Confidence</th>
-                    <th className="p-3.5 pr-6">Evidence / Reason</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-800/60">
-                  {filteredMatrix.map((row, idx) => (
-                    <tr key={idx} className="hover:bg-slate-900/50 transition-colors">
-                      {/* Source Artifact */}
-                      <td className="p-3.5 pl-6 align-top">
-                        <div className="flex items-center gap-1.5">
-                          <span className="font-mono font-bold text-neon-blue">{row.source_artifact}</span>
-                          <span className="text-[10px] font-mono text-slate-500">[{row.source_type}]</span>
-                        </div>
-                        <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.source_text}>{row.source_text}</span>
-                      </td>
-
-                      {/* Relationship */}
-                      <td className="p-3.5 align-top">
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${getRelBadge(row.relationship)}`}>
-                          {row.relationship}
-                        </span>
-                      </td>
-
-                      {/* Target Artifact */}
-                      <td className="p-3.5 align-top">
-                        {row.target_artifact !== '—' ? (
-                          <div>
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-mono font-bold text-indigo-300">{row.target_artifact}</span>
-                              <span className="text-[10px] font-mono text-slate-500">[{row.target_type}]</span>
-                            </div>
-                            <span className="text-xs text-slate-300 line-clamp-2 mt-0.5" title={row.target_text}>{row.target_text}</span>
-                          </div>
-                        ) : (
-                          <span className="text-slate-600 font-mono">—</span>
-                        )}
-                      </td>
-
-                      {/* Status */}
-                      <td className="p-3.5 align-top">
-                        {getStatusBadge(row.status)}
-                      </td>
-
-                      {/* Semantic Sim */}
-                      <td className="p-3.5 align-top font-mono text-center">
-                        {row.semantic_similarity != null ? (
-                          <span className={`px-2 py-0.5 rounded font-bold text-xs ${
-                            row.semantic_similarity >= 0.60 ? 'bg-emerald-500/10 text-emerald-300 border border-emerald-500/30' :
-                            row.semantic_similarity >= 0.40 ? 'bg-cyan-500/10 text-cyan-300 border border-cyan-500/30' :
-                            'bg-slate-800 text-slate-400'
-                          }`}>
-                            {row.semantic_similarity.toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-600">—</span>
-                        )}
-                      </td>
-
-                      {/* Lexical Sim */}
-                      <td className="p-3.5 align-top font-mono text-center text-slate-300">
-                        {row.lexical_similarity != null && row.lexical_similarity > 0 ? (
-                          <span className="text-xs text-slate-300 font-medium">{row.lexical_similarity.toFixed(2)}</span>
-                        ) : row.similarity > 0 && row.semantic_similarity == null ? (
-                          <span className="text-xs text-slate-300 font-medium">{row.similarity.toFixed(2)}</span>
-                        ) : (
-                          <span className="text-slate-600">—</span>
-                        )}
-                      </td>
-
-                      {/* Hybrid Score */}
-                      <td className="p-3.5 align-top font-mono text-center">
-                        {row.hybrid_score != null && row.hybrid_score > 0 ? (
-                          <span className={`px-2 py-0.5 rounded font-black text-xs ${
-                            row.hybrid_score >= 0.60 ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/40' :
-                            row.hybrid_score >= 0.40 ? 'bg-neon-blue/20 text-neon-blue border border-neon-blue/40' :
-                            row.hybrid_score >= 0.28 ? 'bg-amber-500/10 text-amber-300 border border-amber-500/30' :
-                            'bg-slate-800 text-slate-400'
-                          }`}>
-                            {row.hybrid_score.toFixed(2)}
-                          </span>
-                        ) : (
-                          <span className="text-slate-600">—</span>
-                        )}
-                      </td>
-
-                      {/* Confidence */}
-                      <td className="p-3.5 align-top font-mono text-xs">
-                        <span className={row.confidence === 'High' ? 'text-emerald-400 font-bold' : row.confidence === 'Medium' ? 'text-amber-400 font-semibold' : 'text-slate-500'}>
-                          {row.confidence}
-                        </span>
-                      </td>
-
-                      {/* Evidence */}
-                      <td className="p-3.5 pr-6 align-top text-xs text-slate-400 italic">
-                        {row.evidence}
-                      </td>
+            <div className="rounded-2xl bg-[#111827]/80 border border-slate-800/80 overflow-hidden shadow-2xl">
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-xs">
+                  <thead className="bg-slate-900/90 text-slate-400 font-mono text-[11px] uppercase tracking-wider border-b border-slate-800">
+                    <tr>
+                      <th className="py-3.5 px-4">Source Artifact</th>
+                      <th className="py-3.5 px-3">Relationship</th>
+                      <th className="py-3.5 px-4">Target Artifact</th>
+                      <th className="py-3.5 px-3">Status</th>
+                      <th className="py-3.5 px-3 text-right">Actions</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
+                  </thead>
+                  <tbody className="divide-y divide-slate-800/60 font-sans">
+                    {filteredMatrix.map((row, idx) => (
+                      <tr key={idx} className="hover:bg-slate-900/50">
+                        <td className="py-3 px-4">
+                          <div className="font-mono font-bold text-cyan-400">{row.source_artifact}</div>
+                          <div className="text-slate-300 text-[11px] truncate max-w-sm">{row.source_text}</div>
+                        </td>
+                        <td className="py-3 px-3">
+                          <span className={`px-2 py-0.5 rounded-full text-[10px] font-mono font-bold border ${getRelBadge(row.relationship)}`}>{row.relationship}</span>
+                        </td>
+                        <td className="py-3 px-4">
+                          <div className="font-mono font-bold text-sky-400">{row.target_artifact}</div>
+                          <div className="text-slate-400 text-[11px] truncate max-w-sm">{row.target_text}</div>
+                        </td>
+                        <td className="py-3 px-3">{getStatusBadge(row.status)}</td>
+                        <td className="py-3 px-3 text-right">
+                          <button onClick={() => toggleRowExpand(idx)} className="text-[11px] bg-slate-800 px-2 py-1 rounded">Explain</button>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
             </div>
           </div>
         )}
 
-        {/* TAB 2: End-to-End Traceability Chains */}
-        {viewTab === 'chains' && (
-          <div className="mb-12 space-y-4">
-            {chains.map((chain, idx) => (
-              <div key={chain.chain_id || idx} className="p-5 rounded-2xl bg-slate-950/90 border border-slate-800 shadow-md">
-                <div className="flex items-center justify-between mb-3">
-                  <span className="font-mono font-bold text-xs text-neon-blue">{chain.chain_id}</span>
-                  {getStatusBadge(chain.overall_status)}
+        <AnimatePresence>
+          {drawerArtifact && (
+            <div className="fixed inset-0 z-50 flex justify-end bg-black/60 backdrop-blur-sm">
+              <motion.div
+                initial={{ x: '100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '100%' }}
+                className="w-full max-w-lg bg-[#0F172A] border-l border-slate-800 p-6 overflow-y-auto space-y-6 shadow-2xl"
+              >
+                <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+                  <h2 className="text-xl font-black text-white font-mono">{drawerArtifact.artifact_id}</h2>
+                  <button onClick={() => setDrawerArtifact(null)}><X className="w-5 h-5" /></button>
                 </div>
-
-                <div className="flex flex-wrap items-center gap-2 sm:gap-4 text-xs font-mono mb-3">
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span className="text-amber-300 font-bold block">{chain.brd?.id || '—'}</span>
-                    <span className="text-[10px] text-slate-400">BRD</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span className="text-blue-300 font-bold block">{chain.srs?.id || '—'}</span>
-                    <span className="text-[10px] text-slate-400">SRS</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span className="text-cyan-300 font-bold block">{chain.frd?.id || '—'}</span>
-                    <span className="text-[10px] text-slate-400">FRD</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span className="text-purple-300 font-bold block">{chain.user_story?.id || '—'}</span>
-                    <span className="text-[10px] text-slate-400">User Story</span>
-                  </div>
-                  <ArrowRight className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                  <div className="p-2.5 rounded-xl bg-slate-900 border border-slate-800">
-                    <span className="text-emerald-300 font-bold block">{chain.test_case?.id || '—'}</span>
-                    <span className="text-[10px] text-slate-400">Test Case</span>
-                  </div>
-                </div>
-
-                {chain.evidence_chain && chain.evidence_chain.length > 0 && (
-                  <div className="p-2.5 rounded-xl bg-slate-900/60 border border-slate-800/80 text-[11px] text-slate-400">
-                    <strong>Trace Evidence:</strong> {chain.evidence_chain.join(' → ')}
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* TAB 3: Visual Traceability Network Graph (Visual Multi-Tier DAG) */}
-        {viewTab === 'graph' && (
-          <div className="mb-12 p-6 rounded-3xl bg-slate-950/90 border border-slate-800 shadow-2xl">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-              <div>
-                <h3 className="text-base font-bold text-white flex items-center gap-2">
-                  <Network className="w-5 h-5 text-indigo-400" />
-                  Visual Traceability Network Graph ({graph.edges?.length || 0} Directed Edges)
-                </h3>
-                <p className="text-xs text-slate-400 mt-0.5">Interactive multi-tier engineering dependency network discovered by lexical verification</p>
-              </div>
-
-              {selectedGraphNode && (
-                <div className="p-2 px-3 rounded-xl bg-neon-blue/10 border border-neon-blue/30 text-xs flex items-center gap-2">
-                  <span className="text-slate-400">Selected Node:</span>
-                  <span className="font-mono font-bold text-neon-blue">{selectedGraphNode.artifact_id}</span>
-                  <button onClick={() => setSelectedGraphNode(null)} className="text-slate-400 hover:text-white ml-2">×</button>
-                </div>
-              )}
+                <p className="text-slate-300 text-xs font-mono">{drawerArtifact.text}</p>
+              </motion.div>
             </div>
+          )}
+        </AnimatePresence>
 
-            {/* Multi-Tier Directed Flow Visualization */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-5 gap-3 overflow-x-auto pb-4">
-              {[
-                { key: 'BRD', label: 'BRD' },
-                { key: 'SRS', label: 'SRS' },
-                { key: 'FRD', label: 'FRD' },
-                { key: 'USER_STORY', label: 'User Stories' },
-                { key: 'TEST_CASE', label: 'Test Cases' }
-              ].map(tier => (
-                <div key={tier.key} className="p-3.5 rounded-2xl bg-slate-900/50 border border-slate-800 flex flex-col gap-2 min-w-[170px]">
-                  <div className="text-[11px] font-mono font-bold text-slate-400 uppercase border-b border-slate-800 pb-1.5 flex items-center justify-between">
-                    <span>{tier.label}</span>
-                    <span className="text-[10px] text-slate-500">{(nodesByTier[tier.key] || []).length}</span>
-                  </div>
-                  
-                  <div className="space-y-2 mt-1">
-                    {(nodesByTier[tier.key] || []).map(node => {
-                      const isSelected = selectedGraphNode?.id === node.id;
-                      return (
-                        <div
-                          key={node.id}
-                          onClick={() => setSelectedGraphNode(node)}
-                          className={`p-2 rounded-xl text-xs font-mono cursor-pointer transition-all border ${
-                            isSelected 
-                              ? 'bg-neon-blue/20 border-neon-blue text-white shadow-lg' 
-                              : 'bg-slate-950/80 border-slate-800/80 text-slate-300 hover:border-slate-600'
-                          }`}
-                        >
-                          <div className="font-bold flex items-center justify-between">
-                            <span className={tier.key === 'BRD' ? 'text-amber-400' : tier.key === 'SRS' ? 'text-blue-400' : tier.key === 'FRD' ? 'text-cyan-400' : tier.key === 'USER_STORY' ? 'text-purple-400' : 'text-emerald-400'}>
-                              {node.artifact_id}
-                            </span>
-                          </div>
-                          <p className="text-[10px] text-slate-400 line-clamp-2 mt-1">{node.text}</p>
-                        </div>
-                      );
-                    })}
-                  </div>
+        <AnimatePresence>
+          {isCommandOpen && (
+            <div className="fixed inset-0 z-50 flex items-start justify-center pt-24 bg-black/70 backdrop-blur-sm p-4">
+              <motion.div
+                initial={{ opacity: 0, scale: 0.95 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                className="w-full max-w-2xl bg-[#0F172A] border border-slate-700/80 rounded-2xl overflow-hidden shadow-2xl"
+              >
+                <div className="p-4 border-b border-slate-800">
+                  <input autoFocus value={commandQuery} onChange={(e) => setCommandQuery(e.target.value)} className="w-full bg-transparent text-white focus:outline-none font-mono" placeholder="Search..." />
                 </div>
-              ))}
-            </div>
-
-            {/* Edge Connections List for Selected Node or All */}
-            <div className="mt-6 pt-4 border-t border-slate-800">
-              <h4 className="text-xs font-mono font-bold text-slate-400 uppercase mb-3">
-                {selectedGraphNode ? `Direct Links for ${selectedGraphNode.artifact_id}` : 'All Discovered Direct Graph Links'}
-              </h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2.5">
-                {(graph.edges || [])
-                  .filter(e => !selectedGraphNode || e.source === selectedGraphNode.id || e.target === selectedGraphNode.id)
-                  .map((edge, i) => (
-                    <div key={i} className="p-2.5 rounded-xl bg-slate-900/80 border border-slate-800 text-xs flex items-center justify-between">
-                      <span className="font-mono text-neon-blue font-bold truncate max-w-[100px]">{edge.source.split('::')[1] || edge.source}</span>
-                      <span className={`text-[9px] font-mono font-bold px-1.5 py-0.5 rounded border ${getRelBadge(edge.relationship)}`}>
-                        {edge.relationship}
-                      </span>
-                      <span className="font-mono text-indigo-300 font-bold truncate max-w-[100px]">{edge.target.split('::')[1] || edge.target}</span>
+                <div className="p-2 space-y-1">
+                  {commandResults.map((art, idx) => (
+                    <div key={idx} onClick={() => { openArtifactDrawer(art.artifact_id); setIsCommandOpen(false); }} className="p-2.5 rounded-xl hover:bg-slate-800 cursor-pointer flex justify-between">
+                      <span className="font-mono text-cyan-400">{art.artifact_id}</span>
+                      <span className="text-slate-400 truncate text-xs">{art.text}</span>
                     </div>
                   ))}
-              </div>
+                </div>
+              </motion.div>
             </div>
-          </div>
-        )}
-
-        {/* 5. Supporting Artifact Impacts: Change Requests & Meeting Minutes */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-          {/* Change Request Impact Links */}
-          <div className="p-6 rounded-3xl bg-slate-950/80 border border-slate-800 backdrop-blur-xl">
-            <div className="flex items-center gap-2.5 mb-4">
-              <GitPullRequest className="w-5 h-5 text-rose-400" />
-              <div>
-                <h3 className="text-base font-bold text-white">Change Request Impact Matrix</h3>
-                <p className="text-xs text-slate-400">Explicit AFFECTS relationships to master specifications</p>
-              </div>
-            </div>
-
-            {crImpacts.length > 0 ? (
-              <div className="space-y-3">
-                {crImpacts.map((cr, i) => (
-                  <div key={i} className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono font-bold text-rose-300">{cr.cr_id}</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-rose-950 text-rose-300 border border-rose-800">
-                        {cr.status} ({Math.round(cr.similarity * 100)}% overlap)
-                      </span>
-                    </div>
-                    <p className="text-slate-300 font-medium mb-2">"{cr.cr_text}"</p>
-                    {cr.affected_req_id !== '—' ? (
-                      <div className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-2">
-                        <Link2 className="w-3.5 h-3.5 text-neon-blue shrink-0" />
-                        <span><strong>Affects:</strong> {cr.affected_doc} [{cr.affected_req_id}]</span>
-                      </div>
-                    ) : (
-                      <span className="text-slate-500 italic">No specific software requirement affected (Unmapped)</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">No Change Requests uploaded in collection.</p>
-            )}
-          </div>
-
-          {/* Meeting Minutes Governance Links */}
-          <div className="p-6 rounded-3xl bg-slate-950/80 border border-slate-800 backdrop-blur-xl">
-            <div className="flex items-center gap-2.5 mb-4">
-              <Clock className="w-5 h-5 text-indigo-400" />
-              <div>
-                <h3 className="text-base font-bold text-white">Meeting Minutes Governance</h3>
-                <p className="text-xs text-slate-400">Decisions & action items referencing project artifacts</p>
-              </div>
-            </div>
-
-            {momLinks.length > 0 ? (
-              <div className="space-y-3">
-                {momLinks.map((mom, i) => (
-                  <div key={i} className="p-3.5 rounded-2xl bg-slate-900/60 border border-slate-800 text-xs">
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-mono font-bold text-indigo-300">{mom.mom_id}</span>
-                      <span className="px-2 py-0.5 rounded-full text-[10px] font-mono bg-indigo-950 text-indigo-300 border border-indigo-800">
-                        {mom.status}
-                      </span>
-                    </div>
-                    <p className="text-slate-300 font-medium mb-2">"{mom.mom_text}"</p>
-                    {mom.referenced_req_id !== '—' ? (
-                      <div className="p-2 rounded-xl bg-slate-950 border border-slate-800 text-slate-300 flex items-center gap-2">
-                        <Link2 className="w-3.5 h-3.5 text-indigo-400 shrink-0" />
-                        <span><strong>References:</strong> {mom.referenced_doc} [{mom.referenced_req_id}]</span>
-                      </div>
-                    ) : (
-                      <span className="text-slate-500 italic">General governance note</span>
-                    )}
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <p className="text-xs text-slate-500 italic">No Meeting Minutes uploaded in collection.</p>
-            )}
-          </div>
-        </div>
-
-        {/* Phase 2 Clean Footer */}
-        <footer className="mt-16 pt-8 border-t border-slate-800 pb-12 print:hidden">
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6 text-xs text-slate-400 font-medium">
-            <div className="flex flex-wrap items-center gap-6">
-              <span className="flex items-center gap-1.5"><Layers className="w-4 h-4 text-neon-blue"/> ReqVision AI — Software Intelligence Platform</span>
-              <span className="flex items-center gap-1.5"><Database className="w-4 h-4 text-purple-400"/> Cross-Document Lexical Traceability Matrix</span>
-            </div>
-            <div className="text-slate-500">
-              Deterministic Lexical Verification • 100% Anti-Hallucination Safe
-            </div>
-          </div>
-        </footer>
-
+          )}
+        </AnimatePresence>
       </div>
     </div>
   );

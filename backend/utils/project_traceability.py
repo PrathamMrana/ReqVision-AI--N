@@ -1134,6 +1134,146 @@ def analyze_project_documents_traceability(project_documents):
     root_mapped = sum(1 for c in traceability_chains if c["overall_status"] in ["MATCHED", "PARTIAL", "CONFLICT"])
     overall_cov = round((root_mapped / root_total * 100), 1) if root_total > 0 else 0.0
 
+    # ── Phase B: Software Intelligence Layer Computation ──────────────────────────
+    # 1. Transparent Software Intelligence Health Score
+    trace_comp = overall_cov
+    veri_cov = us_tc_cov
+    impl_fid = srs_frd_cov if srs_func_total > 0 else 100.0
+    conf_penalty = min(40.0, len(top_conflicts) * 15.0)
+    conflict_factor = max(0.0, 100.0 - conf_penalty)
+    nfr_mapped = len(set(r["source_artifact"] for r in traceability_relationships if r["source_type"] == "SRS" and "NFR" in r["source_artifact"] and r["status"] in ["MATCHED", "PARTIAL"]))
+    nfr_total = len([a for a in srs_list if "NFR" in a.get("artifact_id", "") or a.get("artifact_type") == "NON_FUNCTIONAL_REQUIREMENT"])
+    nfr_cov = round((nfr_mapped / nfr_total * 100.0), 1) if nfr_total > 0 else 100.0
+
+    health_score = round(
+        (0.30 * trace_comp) +
+        (0.25 * veri_cov) +
+        (0.20 * impl_fid) +
+        (0.15 * conflict_factor) +
+        (0.10 * nfr_cov),
+        1
+    )
+
+    software_health_score = {
+        "overall_score": health_score,
+        "grade": "A" if health_score >= 90 else "B" if health_score >= 75 else "C" if health_score >= 60 else "D" if health_score >= 40 else "F",
+        "formula": "30% Traceability + 25% Verification + 20% Implementation + 15% Conflict Cleanliness + 10% NFR Coverage",
+        "breakdown": {
+            "traceability_completeness": {"score": trace_comp, "weight": "30%", "mapped": root_mapped, "total": root_total},
+            "verification_coverage": {"score": veri_cov, "weight": "25%", "mapped": us_tc_mapped, "total": us_total},
+            "implementation_fidelity": {"score": impl_fid, "weight": "20%", "mapped": srs_frd_mapped, "total": srs_func_total},
+            "conflict_stability": {"score": conflict_factor, "weight": "15%", "conflicts_found": len(top_conflicts)},
+            "nfr_assurance": {"score": nfr_cov, "weight": "10%", "mapped": nfr_mapped, "total": nfr_total}
+        }
+    }
+
+    # 2. Risk Radar (Evidence-backed actionable risk signals)
+    risk_radar = []
+    for conf in top_conflicts:
+        risk_radar.append({
+            "risk_id": f"RISK-CONF-{conf.get('source_artifact')}",
+            "severity": "CRITICAL",
+            "title": f"Specification Contradiction: {conf.get('source_artifact')} vs {conf.get('target_artifact')}",
+            "artifact_id": conf.get("source_artifact"),
+            "target_id": conf.get("target_artifact"),
+            "category": "CONFLICT",
+            "evidence": conf.get("evidence", "Mutually exclusive operational requirements detected.")
+        })
+
+    for unmap in top_unmapped:
+        risk_radar.append({
+            "risk_id": f"RISK-GAP-{unmap.get('artifact_id')}",
+            "severity": "HIGH" if unmap.get("document_type") in ["SRS", "BRD"] else "MEDIUM",
+            "title": f"Unmapped Artifact: {unmap.get('artifact_id')} ({unmap.get('document_type')})",
+            "artifact_id": unmap.get("artifact_id"),
+            "target_id": "—",
+            "category": "TRACEABILITY_GAP",
+            "evidence": f"No downstream realization or test found in project documents."
+        })
+
+    verified_us_ids = {r["source_artifact"] for r in traceability_relationships if r["relationship"] == "VERIFIED_BY" and r["status"] in ["MATCHED", "PARTIAL"]}
+    for us in us_list:
+        if us["artifact_id"] not in verified_us_ids:
+            risk_radar.append({
+                "risk_id": f"RISK-TESTGAP-{us['artifact_id']}",
+                "severity": "MEDIUM",
+                "title": f"Test Coverage Gap: {us['artifact_id']} has no behavioral test case",
+                "artifact_id": us["artifact_id"],
+                "target_id": "—",
+                "category": "TEST_GAP",
+                "evidence": f"User story '{us['text'][:80]}...' is not verified by any QA test case."
+            })
+
+    # 3. Requirement Quality Auditor (Static heuristic textual quality audit)
+    AMBIGUOUS_WORDS = ["fast", "quick", "easy", "robust", "scalable", "user-friendly", "seamless", "efficient", "optimal", "adequate", "flexible"]
+    requirement_quality = []
+    for art in srs_list + brd_list:
+        text_lower = art["text"].lower()
+        findings = []
+        found_ambig = [w for w in AMBIGUOUS_WORDS if re.search(r'\b' + w + r'\b', text_lower)]
+        from utils.negation_detector import extract_numeric_constraints
+        num_c = extract_numeric_constraints(art["text"])
+        if found_ambig and not num_c:
+            findings.append(f"Subjective qualitative language [{', '.join(found_ambig)}] used without measurable quantitative metric")
+            
+        if len(re.findall(r'\b(?:and|as well as|additionally)\b', text_lower)) >= 3:
+            findings.append("Compound multi-clause requirement: risk of untracked sub-clauses")
+
+        from utils.evidence_fusion import extract_actors
+        if not extract_actors(art["text"]):
+            findings.append("Implicit or unspecified actor/stakeholder")
+
+        if findings:
+            requirement_quality.append({
+                "artifact_id": art["artifact_id"],
+                "document_name": art["document_name"],
+                "document_type": art["document_type"],
+                "text": art["text"],
+                "quality_status": "NEEDS_IMPROVEMENT" if len(findings) >= 2 else "WARNING",
+                "findings": findings
+            })
+
+    # 4. Test Intelligence Center
+    test_intelligence = {
+        "total_test_cases": len(tc_list),
+        "mapped_test_cases": len({r["target_artifact"] for r in traceability_relationships if r["relationship"] == "VERIFIED_BY" and r["status"] in ["MATCHED", "PARTIAL"]}),
+        "unmapped_test_cases": len([t for t in tc_list if t["artifact_id"] not in {r["target_artifact"] for r in traceability_relationships if r["relationship"] == "VERIFIED_BY" and r["status"] in ["MATCHED", "PARTIAL"]}]),
+        "verified_stories_count": len(verified_us_ids),
+        "total_stories_count": len(us_list),
+        "verification_rate": f"{us_tc_cov}%",
+        "test_gaps": [
+            {
+                "story_id": u["artifact_id"],
+                "story_text": u["text"],
+                "status": "UNCOVERED"
+            } for u in us_list if u["artifact_id"] not in verified_us_ids
+        ]
+    }
+
+    # 5. Change Impact Intelligence
+    change_impact_summary = {
+        "total_change_requests": len(cr_list),
+        "active_change_impacts": len(cr_impacts),
+        "direct_impact_items": cr_impacts,
+        "derived_impacts": []
+    }
+    for cr_imp in cr_impacts:
+        target_id = cr_imp.get("target_artifact")
+        derived_chain = next((c for c in traceability_chains if (c.get("srs") and c["srs"].get("artifact_id") == target_id) or (c.get("frd") and c["frd"].get("artifact_id") == target_id)), None)
+        if derived_chain:
+            downstream = []
+            if derived_chain.get("frd") and derived_chain["frd"].get("artifact_id") != target_id:
+                downstream.append({"type": "FRD", "id": derived_chain["frd"]["artifact_id"], "name": derived_chain["frd"]["name"]})
+            if derived_chain.get("user_story"):
+                downstream.append({"type": "USER_STORY", "id": derived_chain["user_story"]["id"], "name": derived_chain["user_story"]["name"]})
+            if derived_chain.get("test_case"):
+                downstream.append({"type": "TEST_CASE", "id": derived_chain["test_case"]["id"], "name": derived_chain["test_case"]["name"]})
+            change_impact_summary["derived_impacts"].append({
+                "change_request_id": cr_imp.get("change_request_id") or cr_imp.get("source_artifact"),
+                "primary_target": target_id,
+                "downstream_affected_artifacts": downstream
+            })
+
     # ── Semantic metadata ─────────────────────────────────────────────────────
     sem_available = _semantic_engine.is_available()
     analysis_mode = "hybrid_semantic_lexical" if sem_available else "lexical_fallback"
@@ -1146,7 +1286,7 @@ def analyze_project_documents_traceability(project_documents):
     return {
         "success": True,
         "mode": "project_intelligence",
-        "title": "ReqVision AI — Software Intelligence & Cross-Document Traceability",
+        "title": "ReqVision AI — Software Intelligence Platform",
         "analysis_type": analysis_type,
         "analysis_mode": analysis_mode,
         "semantic_enabled": sem_available,
@@ -1204,6 +1344,11 @@ def analyze_project_documents_traceability(project_documents):
         "top_unmapped": top_unmapped,
         "change_request_impacts": cr_impacts,
         "meeting_minutes_links": mom_links,
+        "software_health_score": software_health_score,
+        "risk_radar": risk_radar,
+        "requirement_quality": requirement_quality,
+        "test_intelligence": test_intelligence,
+        "change_impact_summary": change_impact_summary,
         "statistics": {
             "total_documents": len(project_documents),
             "total_artifacts": len(all_artifacts),
