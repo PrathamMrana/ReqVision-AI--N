@@ -97,8 +97,8 @@ ACTION_PATTERNS = {
     ],
     "view": [
         r"\bdisplay\w*\b", r"\bview\w*\b", r"\bvisualiz\w*\b", r"\bshow\w*\b",
-        r"\bpresent\w*\b", r"\bdashboard\b", r"\bui\b", r"\bwidget\b",
-        r"\bmetrics\b", r"\bstatistic\w*\b", r"\bconsole\b", r"\bscreen\b"
+        r"\bpresent\w*\b", r"\bread\s+screen\b",
+        r"\brender\s+(?:on\s+)?(?:ui|dashboard|screen|console|view)\b"
     ],
     "stream": [
         r"\bstream\w*\b", r"\bplay\w*\b", r"\brender\w*\b", r"\bbroadcast\w*\b",
@@ -187,13 +187,15 @@ CONTEXT_PATTERNS = {
 }
 
 # ── Negative Evidence: Strictly Incompatible Action / Capability Pairs ─────────
+# ── Negative Evidence: Strictly Incompatible Action / Capability Pairs ─────────
 # Mandated Generic Failure Classes:
-# AUDIT != PREVENT, APPROVE != BLOCK, MONITOR != DETECT, DISPLAY != ANALYZE, RECORD != EXECUTE, SEARCH != EXPORT
+# 1. AUDIT != PREVENT, 2. APPROVE != BLOCK, 3. MONITOR != DETECT, 4. DISPLAY != ANALYZE,
+# 5. RECORD != EXECUTE, 6. SEARCH != EXPORT, 7. DETECT != DISPLAY, 8. NOTIFY != CONFIGURE, 9. MEASURE != CONTROL
 INCOMPATIBLE_ACTION_PAIRS = [
-    # AUDIT != PREVENT
+    # 1. AUDIT != PREVENT
     ({"history"}, {"detect_dup"}),
     ({"history"}, {"prevent_conflict"}),
-    # APPROVE != BLOCK / CANCEL / EMERGENCY_STOP
+    # 2. APPROVE != BLOCK / CANCEL / EMERGENCY_STOP
     ({"approve"}, {"cancel"}),
     ({"approve"}, {"emergency_stop"}),
     ({"approve"}, {"delete"}),
@@ -201,20 +203,28 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"approve"}, {"fault_report"}),
     ({"approve"}, {"detect_dup"}),
     ({"approve"}, {"history"}),
-    # MONITOR != DETECT
+    # 3. MONITOR != DETECT
     ({"track"}, {"detect_violation"}),
     ({"track"}, {"detect_dup"}),
-    ({"view"}, {"detect_violation"}),
-    # DISPLAY != ANALYZE
+    # 4. DISPLAY != ANALYZE
     ({"view"}, {"estimate"}),
-    # RECORD != EXECUTE
+    # 5. RECORD != EXECUTE / AUDIT != EXECUTE
     ({"history"}, {"manage"}),
     ({"history"}, {"reserve"}),
     ({"history"}, {"pay"}),
     ({"history"}, {"calibrate"}),
     ({"history"}, {"estimate"}),
-    # SEARCH != EXPORT
+    # 6. SEARCH != EXPORT
     ({"search"}, {"export"}),
+    # 7. DETECT != DISPLAY
+    ({"detect_violation"}, {"view"}),
+    ({"detect_dup"}, {"view"}),
+    # 8. NOTIFY != CONFIGURE
+    ({"notify"}, {"manage"}),
+    ({"notify"}, {"calibrate"}),
+    # 9. MEASURE != CONTROL
+    ({"track"}, {"emergency_stop"}),
+    ({"view"}, {"emergency_stop"}),
     # Additional generic workflow boundaries
     ({"reconcile"}, {"refund"}),
     ({"export"}, {"delete"}),
@@ -234,6 +244,78 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"export"}, {"track"}),
     ({"calibrate"}, {"manage"}),
 ]
+
+# ── Generic NFR Quality Attribute Taxonomy ────────────────────────────────────
+NFR_PATTERNS = {
+    "LATENCY": [r"\blatency\b", r"\bresponse\s+time\b", r"\bunder\s+\d+\s*(?:ms|milliseconds|seconds|s)\b", r"\bp9[59]\b", r"\brtt\b", r"\bround-?trip\b"],
+    "THROUGHPUT": [r"\bthroughput\b", r"\btps\b", r"\brps\b", r"\bqps\b", r"\btransactions\s+per\s+second\b", r"\brequests\s+per\s+second\b", r"\bpackets\s+per\s+second\b", r"\bcheckouts\s+per\s+minute\b"],
+    "CONCURRENCY": [r"\bconcurrent\s+(?:users|connections|sessions|requests|streams)\b", r"\bsimultaneous\s+(?:users|connections|sessions)\b", r"\bcapacity\s+of\s+\d+\b", r"\bparallel\s+users\b"],
+    "AVAILABILITY": [r"\buptime\b", r"\bavailability\b", r"\b99\.\d+%\b", r"\bfailover\b", r"\bzero\s+downtime\b", r"\bhigh\s+availability\b", r"\bha\b"],
+    "RELIABILITY": [r"\bmtbf\b", r"\bmttr\b", r"\berror\s+rate\b", r"\bfault\s+tolerant\b", r"\bredundancy\b", r"\bdisaster\s+recovery\b"],
+    "SECURITY": [r"\bhipaa\b", r"\bgdpr\b", r"\bpci[- ]?dss\b", r"\bsoc2\b", r"\bencryption\b", r"\baes-?256\b", r"\bsha-?256\b", r"\btls\b", r"\bzero-?trust\b", r"\broot\s+of\s+trust\b", r"\bhardware\s+security\s+module\b", r"\bhsm\b"],
+    "SCALABILITY": [r"\bauto-?scal\w*\b", r"\bhorizontal\s+scal\w*\b", r"\belastic\b", r"\bscale\s+out\b"],
+    "COMPLIANCE": [r"\bcompliance\b", r"\bregulatory\b", r"\baudit\s+trail\b", r"\bimmutable\s+ledger\b", r"\bcap\/clia\b", r"\bfaa\b", r"\bfda\b", r"\biso\s*\d+\b"],
+}
+
+
+def classify_nfr(text: str) -> str:
+    """Classifies requirement text into an explicit NFR quality attribute category or 'NONE'."""
+    t = text.lower()
+    for nfr_type, patterns in NFR_PATTERNS.items():
+        if any(re.search(pat, t) for pat in patterns):
+            return nfr_type
+    return "NONE"
+
+
+def build_canonical_artifact_model(artifact: Dict) -> Dict:
+    """
+    Constructs a unified, canonical artifact representation containing all
+    semantic, structural, behavioral, governance, and capability facets.
+    """
+    text = artifact.get("text", "")
+    actions = extract_actions(text)
+    actors = extract_actors(text)
+    contexts = extract_contexts(text)
+    entities = extract_entities(text)
+    gov_state, gov_desc = extract_governance_state(text)
+    nfr_type = classify_nfr(text)
+    
+    primary_action = next(iter(actions)) if actions else "general"
+    secondary_actions = actions - {primary_action} if actions else set()
+    primary_obj = next(iter(entities)) if entities else "item"
+    
+    from utils.negation_detector import has_negation
+    is_neg = has_negation(text)
+    polarity = "prohibited" if is_neg else ("mandatory" if any(w in text.lower() for w in ["shall", "must", "required", "mandated"]) else "standard")
+    
+    ctx_str = ",".join(sorted(contexts)) if contexts else "any"
+    capability_signature = f"{primary_action}:{primary_obj}:{nfr_type}:{ctx_str}"
+    
+    return {
+        "artifact_id": artifact.get("artifact_id", "—"),
+        "document_id": artifact.get("document_id", "—"),
+        "document_type": artifact.get("document_type", "UNKNOWN"),
+        "text": text,
+        "clean_text": artifact.get("clean_text", ""),
+        "actor": sorted(list(actors)),
+        "primary_action": primary_action,
+        "secondary_actions": sorted(list(secondary_actions)),
+        "primary_object": primary_obj,
+        "object_attributes": sorted(list(entities - {primary_obj})),
+        "trigger": sorted(list(contexts)),
+        "event": sorted(list(contexts)),
+        "outcome": "completed" if not is_neg else "prevented",
+        "purpose": artifact.get("section", "functional_requirement"),
+        "context": sorted(list(contexts)),
+        "constraints": [],
+        "state": "active",
+        "lifecycle": "proposed" if gov_state in ["PROPOSED", "PENDING"] else "approved",
+        "polarity": polarity,
+        "governance_state": gov_state,
+        "domain_entities": sorted(list(entities)),
+        "nfr_type": nfr_type,
+        "capability_signature": capability_signature,
+    }
 
 
 def decompose_requirement_clauses(text: str) -> List[str]:

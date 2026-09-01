@@ -20,7 +20,8 @@ from utils.evidence_fusion import (
     compute_capability_identity_score,
     rank_and_disambiguate_candidates,
     extract_governance_state,
-    build_capability_profile
+    build_capability_profile,
+    build_canonical_artifact_model
 )
 
 # ── Semantic engine (singleton, loaded once) ──────────────────────────────────
@@ -338,8 +339,9 @@ def find_candidate_relationships(
     matches_found = []
     evaluated_candidates = []
 
+    # ── STAGE 1: Candidate Retrieval (Dense Semantic + Lexical TF-IDF + Domain Intent) ──
+    stage1_candidates = []
     for cand in candidate_arts:
-        # ── 1. Lexical + intent evidence ──────────────────────────────────────
         lex_score, lex_evidence, shared_intents = compute_domain_lexical_similarity(
             vectorizer,
             source_art["clean_text"], cand["clean_text"],
@@ -363,12 +365,38 @@ def find_candidate_relationships(
             lex_evidence = f"Explicit ID reference to {cand['artifact_id']} with domain alignment"
             shared_intents.add("explicit_reference")
 
-        # ── 2. Hybrid scoring: semantic + lexical + intent ────────────────────
         hybrid, sem_score, sem_used, intent_val = compute_hybrid_score(
             source_art["text"], cand["text"], lex_score, shared_intents
         )
+        retrieval_score = max(hybrid, lex_score) + (0.25 if has_id_ref else 0.0) + (0.10 if shared_intents else 0.0)
+        stage1_candidates.append({
+            "cand": cand,
+            "hybrid": hybrid,
+            "sem_score": sem_score,
+            "lex_score": lex_score,
+            "lex_evidence": lex_evidence,
+            "shared_intents": shared_intents,
+            "intent_val": intent_val,
+            "has_id_ref": has_id_ref,
+            "retrieval_score": retrieval_score
+        })
 
-        # ── 3. Hard Candidate Relevance Gate with Relationship-Specific Proof ──
+    # Sort by retrieval score and retain Top-K candidates for Stage 2 deep decision
+    stage1_candidates.sort(key=lambda x: x["retrieval_score"], reverse=True)
+    top_k_candidates = stage1_candidates[:15]
+
+    # ── STAGE 2: Deep Decision Stage (Capability Identity, Relevance Gate, Relationship Proof) ──
+    for item in top_k_candidates:
+        cand = item["cand"]
+        hybrid = item["hybrid"]
+        sem_score = item["sem_score"]
+        lex_score = item["lex_score"]
+        lex_evidence = item["lex_evidence"]
+        shared_intents = item["shared_intents"]
+        intent_val = item["intent_val"]
+        has_id_ref = item["has_id_ref"]
+
+        # Hard Candidate Relevance Gate with Relationship-Specific Proof
         is_relevant, relevance_reason = evaluate_candidate_relevance_gate(
             source_art["text"], cand["text"], sem_score, lex_score, shared_intents,
             relationship_type=relationship_type, has_explicit_ref=has_id_ref
@@ -377,7 +405,7 @@ def find_candidate_relationships(
             # REJECT candidate immediately — do NOT process for conflict, do NOT add to evaluated candidates
             continue
 
-        # ── 4. Action & Entity Alignment (Anti-Hallucination) ─────────────────
+        # Action & Entity Alignment (Anti-Hallucination)
         action_score, action_reason = evaluate_action_alignment(source_art["text"], cand["text"])
         entity_score, entity_reason = evaluate_entity_alignment(source_art["text"], cand["text"])
         actor_score, actor_reason = evaluate_actor_alignment(source_art["text"], cand["text"])
@@ -388,7 +416,7 @@ def find_candidate_relationships(
             action_score, entity_score, context_score, actor_score, hybrid, shared_intents, has_id_ref=has_id_ref
         )
 
-        # ── 4b. Relationship-Specific Proof Scoring ──────────────────────────
+        # Relationship-Specific Proof Scoring
         rel_proof_score = 1.0
         if relationship_type == "VERIFIED_BY":
             v_score, v_reason, is_partial_v = evaluate_behavioral_verification(source_art["text"], cand["text"])
@@ -397,14 +425,13 @@ def find_candidate_relationships(
                 has_missing = True
                 missing_reason = v_reason
         elif relationship_type == "REALIZED_BY":
-            # For user stories, factor in actor goal alignment
             rel_proof_score = (actor_score * 0.40) + (action_score * 0.30) + (entity_score * 0.30)
 
-        # ── 5. Negation / polarity check (generic) ────────────────────────────
+        # Negation / polarity check (generic)
         polarity_conflict, polarity_reason = check_polarity_conflict(source_art["text"], cand["text"])
         numeric_result, numeric_reason = check_numeric_conflict(source_art["text"], cand["text"])
 
-        # ── 6. Change Request AFFECTS & Governance Preservation ───────────────
+        # Change Request AFFECTS & Governance Preservation
         has_conflict, conflict_reason = check_explainable_conflict(source_art["text"], cand["text"])
         gov_state, gov_desc = extract_governance_state(source_art["text"])
 
@@ -744,6 +771,7 @@ def analyze_project_documents_traceability(project_documents):
                 "section": art.get("section") or "General",
                 "metadata": art.get("metadata") or {}
             }
+            norm_art["canonical_model"] = build_canonical_artifact_model(norm_art)
             all_artifacts.append(norm_art)
             valid_doc_artifacts.append(norm_art)
 
