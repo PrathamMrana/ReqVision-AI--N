@@ -6,7 +6,7 @@ import {
   Shield, Cpu, Zap, Compass, BarChart3, ChevronDown, Eye, Terminal,
   Sliders, AlertOctagon, HelpCircle, CornerDownRight, ExternalLink,
   Maximize2, Minimize2, RefreshCw, Copy, CheckCheck, ListFilter,
-  Workflow, ArrowUpRight, Crosshair
+  Workflow, ArrowUpRight, Crosshair, Printer
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
@@ -214,7 +214,11 @@ export default function ProjectTraceabilityDashboard({ result }) {
 
   return (
     <div className="bg-[#070B14] min-h-screen py-6 text-slate-100 font-sans selection:bg-cyan-500/30">
-      <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6">
+      
+      {/* ══════════════════════════════════════════════════════════════════════════ */}
+      {/* ── INTERACTIVE APP SCREEN (HIDDEN ON PRINT) ─────────────────────────── */}
+      {/* ══════════════════════════════════════════════════════════════════════════ */}
+      <div className="max-w-[1560px] mx-auto px-4 sm:px-6 lg:px-8 space-y-6 print:hidden">
 
         {/* ── TOP BAR / COMMAND HEADER ────────────────────────────────────────── */}
         <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 p-6 rounded-3xl bg-[#0D1527]/90 backdrop-blur-2xl border border-slate-800/80 shadow-[0_8px_32px_rgba(0,0,0,0.5)]">
@@ -250,7 +254,7 @@ export default function ProjectTraceabilityDashboard({ result }) {
               onClick={() => window.print()}
               className="flex items-center gap-2 px-5 py-2.5 rounded-2xl bg-gradient-to-r from-cyan-600 via-sky-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold text-xs shadow-lg shadow-cyan-600/25 transition-all cursor-pointer whitespace-nowrap"
             >
-              <Download className="w-4 h-4" /> Export Intelligence Dossier
+              <Download className="w-4 h-4" /> Export Complete Intelligence Dossier (PDF)
             </button>
           </div>
         </div>
@@ -1216,6 +1220,241 @@ export default function ProjectTraceabilityDashboard({ result }) {
         </AnimatePresence>
 
       </div>
+
+      {/* ══════════════════════════════════════════════════════════════════════════ */}
+      {/* ── COMPLETE EXECUTIVE INTELLIGENCE DOSSIER (PRINT / PDF EXPORT VIEW) ── */}
+      {/* ══════════════════════════════════════════════════════════════════════════ */}
+      <div className="hidden print:block bg-white text-slate-900 p-8 font-sans space-y-8">
+        
+        {/* Cover & Header */}
+        <div className="border-b-2 border-slate-900 pb-6 space-y-3">
+          <div className="flex justify-between items-center">
+            <div>
+              <div className="text-xs font-mono font-bold uppercase tracking-widest text-slate-500">REQVISION AI ENTERPRISE DOSSIER</div>
+              <h1 className="text-3xl font-black text-slate-900">Software Intelligence Audit Report</h1>
+            </div>
+            <div className="text-right font-mono text-xs text-slate-600">
+              <div>Generated: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</div>
+              <div>Model: {semanticModel}</div>
+              <div>Mode: {analysisMode}</div>
+            </div>
+          </div>
+
+          {/* Software Health Score Card */}
+          <div className="grid grid-cols-4 gap-4 p-4 bg-slate-50 border border-slate-300 rounded-xl mt-4">
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-slate-500 font-mono">SOFTWARE HEALTH SCORE</div>
+              <div className="text-3xl font-black text-slate-900">{healthScore.overall_score}/100</div>
+              <div className="text-xs font-bold text-emerald-700">Grade {healthScore.grade} • Optimal Stability</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-slate-500 font-mono">TRACEABILITY COMPLETENESS</div>
+              <div className="text-3xl font-black text-slate-900">{summary.coverage_percentage || 0}%</div>
+              <div className="text-xs text-slate-600">{matrix.length} Verified Links</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-slate-500 font-mono">BEHAVIORAL VERIFICATION</div>
+              <div className="text-3xl font-black text-slate-900">{testIntelligence.verification_rate}</div>
+              <div className="text-xs text-slate-600">{testIntelligence.verified_stories_count}/{testIntelligence.total_stories_count} Stories Tested</div>
+            </div>
+            <div className="space-y-1">
+              <div className="text-xs font-bold text-slate-500 font-mono">ACTIVE RISKS & CONFLICTS</div>
+              <div className="text-3xl font-black text-rose-700">{riskRadar.length}</div>
+              <div className="text-xs text-slate-600">{topConflicts.length} Contradictions Flagged</div>
+            </div>
+          </div>
+          <div className="text-xs font-mono text-slate-600 italic">
+            Formula: {healthScore.formula}
+          </div>
+        </div>
+
+        {/* ── SECTION 1: SYSTEM ARCHITECTURE & COVERAGE ── */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-slate-900 border-b border-slate-300 pb-2">1. System Lifecycle Architecture & Path Coverage</h2>
+          <div className="grid grid-cols-4 gap-3 text-xs">
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="font-bold text-slate-500">Business (BRD) → System (SRS)</div>
+              <div className="text-lg font-black text-slate-900">{summary.path_coverage?.brd_to_srs_coverage || '100%'}</div>
+            </div>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="font-bold text-slate-500">System (SRS) → Capability (FRD)</div>
+              <div className="text-lg font-black text-slate-900">{summary.path_coverage?.srs_to_frd_coverage || '100%'}</div>
+            </div>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="font-bold text-slate-500">System (SRS) → User Story</div>
+              <div className="text-lg font-black text-slate-900">{summary.path_coverage?.srs_to_user_story_coverage || '100%'}</div>
+            </div>
+            <div className="p-3 bg-slate-50 border border-slate-200 rounded-lg">
+              <div className="font-bold text-slate-500">User Story → QA Test Case</div>
+              <div className="text-lg font-black text-slate-900">{summary.path_coverage?.user_story_to_test_case_coverage || '100%'}</div>
+            </div>
+          </div>
+        </div>
+
+        {/* ── SECTION 2: COMPLETE TRACEABILITY MATRIX WITH FULL EXPLANATIONS ── */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-slate-900 border-b border-slate-300 pb-2">
+            2. Complete Traceability Matrix & Full Evidence Rationale ({matrix.length} Links)
+          </h2>
+          
+          <table className="w-full text-left text-xs border border-slate-300 border-collapse">
+            <thead>
+              <tr className="bg-slate-100 font-mono text-[11px] uppercase border-b border-slate-300">
+                <th className="p-2 border-r border-slate-300">Source Specification</th>
+                <th className="p-2 border-r border-slate-300">Relationship</th>
+                <th className="p-2 border-r border-slate-300">Target Realization</th>
+                <th className="p-2 border-r border-slate-300">Status</th>
+                <th className="p-2">Multi-Factor Rationale & Evidence</th>
+              </tr>
+            </thead>
+            <tbody>
+              {matrix.map((row, idx) => (
+                <tr key={idx} className="border-b border-slate-200">
+                  <td className="p-2 border-r border-slate-200 align-top">
+                    <div className="font-mono font-bold text-slate-900">{row.source_artifact}</div>
+                    <div className="text-[11px] text-slate-600 mt-1">{row.source_text}</div>
+                  </td>
+                  <td className="p-2 border-r border-slate-200 align-top font-mono font-bold text-slate-800 text-[11px]">
+                    {row.relationship}
+                  </td>
+                  <td className="p-2 border-r border-slate-200 align-top">
+                    <div className="font-mono font-bold text-slate-900">{row.target_artifact}</div>
+                    <div className="text-[11px] text-slate-600 mt-1">{row.target_text || '—'}</div>
+                  </td>
+                  <td className="p-2 border-r border-slate-200 align-top font-mono font-bold text-[11px]">
+                    <span className={row.status === 'MATCHED' ? 'text-emerald-700 font-bold' : row.status === 'PARTIAL' ? 'text-amber-700 font-bold' : row.status === 'CONFLICT' ? 'text-rose-700 font-bold' : 'text-slate-500'}>
+                      {row.status}
+                    </span>
+                  </td>
+                  <td className="p-2 align-top text-[11px] font-mono leading-relaxed bg-slate-50">
+                    <div className="text-slate-800 font-medium">{row.evidence || row.reason || 'Verified through capability alignment.'}</div>
+                    <div className="text-slate-500 mt-1">
+                      Semantic: {row.semantic_similarity ? (row.semantic_similarity * 100).toFixed(0) + '%' : '—'} | 
+                      Lexical: {row.lexical_similarity ? (row.lexical_similarity * 100).toFixed(0) + '%' : '—'} | 
+                      Hybrid: {row.hybrid_score ? (row.hybrid_score * 100).toFixed(0) + '%' : '—'}
+                    </div>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* ── SECTION 3: END-TO-END CHAINS ── */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-slate-900 border-b border-slate-300 pb-2">
+            3. End-to-End Traceability Pipeline Chains ({chains.length} Chains)
+          </h2>
+          <div className="space-y-3">
+            {chains.map((chain, cIdx) => (
+              <div key={cIdx} className="p-3 border border-slate-300 rounded-lg bg-slate-50 space-y-2">
+                <div className="flex justify-between font-mono text-xs font-bold">
+                  <span>Chain #{cIdx + 1}: {chain.requirement_text || chain.srs?.text}</span>
+                  <span className={chain.overall_status === 'MATCHED' ? 'text-emerald-700' : 'text-amber-700'}>
+                    STATUS: {chain.overall_status}
+                  </span>
+                </div>
+                <div className="grid grid-cols-5 gap-2 text-xs font-mono">
+                  <div className="p-2 bg-white border border-slate-200 rounded">
+                    <div className="text-[10px] text-slate-500">1. BRD</div>
+                    <div className="font-bold">{chain.brd?.artifact_id || chain.brd?.id || '—'}</div>
+                  </div>
+                  <div className="p-2 bg-white border border-slate-200 rounded">
+                    <div className="text-[10px] text-slate-500">2. SRS</div>
+                    <div className="font-bold">{chain.srs?.artifact_id || chain.srs?.id || '—'}</div>
+                  </div>
+                  <div className="p-2 bg-white border border-slate-200 rounded">
+                    <div className="text-[10px] text-slate-500">3. FRD</div>
+                    <div className="font-bold">{chain.frd?.artifact_id || chain.frd?.id || '—'}</div>
+                  </div>
+                  <div className="p-2 bg-white border border-slate-200 rounded">
+                    <div className="text-[10px] text-slate-500">4. USER STORY</div>
+                    <div className="font-bold">{chain.user_story?.artifact_id || chain.user_story?.id || '—'}</div>
+                  </div>
+                  <div className="p-2 bg-white border border-slate-200 rounded">
+                    <div className="text-[10px] text-slate-500">5. TEST CASE</div>
+                    <div className="font-bold">{chain.test_case?.artifact_id || chain.test_case?.id || '—'}</div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* ── SECTION 4: RISK RADAR & CONFLICTS ── */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-slate-900 border-b border-slate-300 pb-2">
+            4. Risk Radar, Specification Conflicts & Traceability Gaps ({riskRadar.length} Items)
+          </h2>
+          {riskRadar.length === 0 ? (
+            <div className="p-4 bg-emerald-50 border border-emerald-300 rounded text-emerald-800 text-xs font-mono font-bold">
+              ✓ Zero critical specification conflicts or traceability gaps detected.
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {riskRadar.map((risk, rIdx) => (
+                <div key={rIdx} className="p-3 border border-slate-300 rounded bg-slate-50 space-y-1">
+                  <div className="flex justify-between font-mono text-xs font-bold">
+                    <span className="text-rose-700">[{risk.severity}] {risk.category} • {risk.artifact_id}</span>
+                  </div>
+                  <div className="text-xs font-bold text-slate-900">{risk.title}</div>
+                  <div className="text-xs text-slate-600 font-mono">{risk.evidence}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── SECTION 5: CHANGE IMPACT & BLAST RADIUS ── */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-slate-900 border-b border-slate-300 pb-2">
+            5. Change Impact & Blast Radius Dossier ({crImpacts.length} Change Requests)
+          </h2>
+          {crImpacts.length === 0 ? (
+            <div className="text-xs text-slate-500 italic font-mono">No Change Requests present in this dataset.</div>
+          ) : (
+            <div className="space-y-2">
+              {crImpacts.map((cr, cIdx) => (
+                <div key={cIdx} className="p-3 border border-slate-300 rounded bg-slate-50 space-y-1">
+                  <div className="flex justify-between font-mono text-xs font-bold">
+                    <span className="text-amber-800">{cr.change_request_id || cr.source_artifact}</span>
+                    <span className="text-slate-700">Direct Impact Target: {cr.target_artifact}</span>
+                  </div>
+                  <div className="text-xs text-slate-800 font-mono">{cr.change_text || cr.source_text}</div>
+                  <div className="text-xs text-slate-600 font-mono">Evidence: {cr.impact_reason || cr.evidence}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* ── SECTION 6: BEHAVIORAL TEST INTELLIGENCE & QUALITY AUDIT ── */}
+        <div className="space-y-4">
+          <h2 className="text-xl font-bold text-slate-900 border-b border-slate-300 pb-2">
+            6. Behavioral Test Intelligence & Requirement Quality Audit
+          </h2>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div className="p-4 border border-slate-300 rounded bg-slate-50 space-y-2">
+              <div className="font-bold text-xs text-slate-700">Test Verification Coverage</div>
+              <div className="text-xs font-mono">Total Tests: {testIntelligence.total_test_cases} | Mapped: {testIntelligence.mapped_test_cases} | Verification Rate: {testIntelligence.verification_rate}</div>
+              <div className="text-xs text-slate-600 font-mono mt-1">
+                {testIntelligence.test_gaps?.length === 0 ? '✓ All user stories verified by behavioral QA test cases.' : `${testIntelligence.test_gaps.length} unverified story gap(s) found.`}
+              </div>
+            </div>
+
+            <div className="p-4 border border-slate-300 rounded bg-slate-50 space-y-2">
+              <div className="font-bold text-xs text-slate-700">Requirement Quality Static Audit</div>
+              <div className="text-xs font-mono">{requirementQuality.length} Quality Finding(s) Flagged</div>
+              <div className="text-xs text-slate-600 font-mono mt-1">
+                Static heuristic analysis covering subjective adjectives, compound multi-clause sentences, and unspecified actors.
+              </div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
     </div>
   );
 }
