@@ -148,8 +148,9 @@ ACTION_PATTERNS = {
         r"\btun(?:e|ing)\b", r"\bsensor\s+calibrat\w*\b"
     ],
     "detect_violation": [
-        r"\b(?:detect|identify|flag|alert|warn)\w*(?:\s+\w+){0,4}\s+(?:violation|breach|surge|anomaly|hazard)\b",
-        r"\b(?:threshold|limit|tolerance|surge|breach)\s+(?:detection|exceeded|alarm|breach)\b",
+        r"\b(?:detect|identify|flag|alert|warn)\w*(?:\s+\w+){0,5}\s+(?:violation|breach|surge|anomaly|anomalies|hazard)\w*\b",
+        r"\b(?:violation|breach|surge|anomaly|anomalies|hazard)\w*(?:\s+\w+){0,4}\s+(?:detect|identif|flag|alert|warn)\w*\b",
+        r"\b(?:threshold|limit|tolerance|surge|breach)\w*\s+(?:detection|exceeded|alarm|breach)\w*\b",
         r"\bbreach\s+alert\w*\b", r"\banomaly\s+detect\w*\b", r"\bhazard\s+alert\w*\b"
     ],
     "fault_report": [
