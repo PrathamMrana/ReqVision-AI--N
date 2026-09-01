@@ -383,7 +383,9 @@ GENERIC_BOILERPLATE = {
     "real", "time", "include", "includes", "included", "ensure", "ensures", "ensured",
     "the", "and", "for", "with", "from", "that", "this", "per", "via", "all", "any",
     "can", "may", "not", "but", "out", "into", "onto", "each", "both", "such", "than",
-    "then", "when", "what", "which", "who", "whom", "whose", "how", "where", "why"
+    "then", "when", "what", "which", "who", "whom", "whose", "how", "where", "why",
+    "archive", "archives", "archived", "archiving", "history", "historical", "log", "logs",
+    "logging", "record", "records", "recorded", "recording", "event", "events", "trail", "trails"
 }
 
 
