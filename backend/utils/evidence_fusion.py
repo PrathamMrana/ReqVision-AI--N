@@ -137,12 +137,12 @@ ACTION_PATTERNS = {
         r"\bschedule\s+collision\b"
     ],
     "history": [
-        r"\b(?:audit|repair|maintenance|calibration|version|transaction|change|activation|operation|access|modification)\s+history\b",
-        r"\b(?:record|archive|log|maintain|audit|track)\w*(?:\s+\w+){0,3}\s+(?:history|trail|log|records|ledger)\w*\b",
+        r"\b(?:audit|repair|maintenance|calibration|version|transaction|change|activation|operation|access|modification|configuration|config|rule|credential|failover|incident|event|snapshot)\s+(?:\w+\s+)?history\b",
+        r"\b(?:record|archive|log|maintain|audit|track|store|capture|save|keep)\w*(?:\s+\w+){0,4}\s+(?:history|trail|log|records|ledger|snapshots?)\w*\b",
         r"\baudit\s+trail\b", r"\bhistory\s+log\w*\b", r"\bview\s+history\b",
         r"\btrack\s+history\b", r"\bhistorical\s+audit\b", r"\bpast\s+maintenance\b",
         r"\bpast\s+repair\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b",
-        r"\bledger\b", r"\bimmutable\b"
+        r"\bledger\b", r"\bimmutable\b", r"\bsnapshot\s+history\b"
     ],
     "calibrate": [
         r"\bcalibrat\w*\b", r"\bzero\s+offset\b", r"\bgain\s+adjust\w*\b",
@@ -163,6 +163,50 @@ ACTION_PATTERNS = {
         r"\bemergency\s+contact\w*\b", r"\bnext-?of-?kin\b"
     ],
 }
+
+# ── History Subject Subtype Patterns ───────────────────────────────────────────
+HISTORY_SUBJECT_PATTERNS = {
+    "rule_change": [
+        r"\b(?:rule[-_\s]?change|approval\s+rule|routing\s+rule|access\s+rule|business\s+rule|validation\s+rule|eligibility\s+rule|policy\s+rule|discount\s+rule|policy\s+change|rule\s+modification|rule\s+audit)\w*\b",
+        r"\b(?:rules?|polic(?:y|ies))\b"
+    ],
+    "configuration": [
+        r"\b(?:config(?:uration)?|setting\w*|parameter\w*|environment\s+variable\w*|system\s+propert\w*|snapshot\w*|profile\w*)\b"
+    ],
+    "credential": [
+        r"\b(?:credential\w*|password\w*|secret\w*|api\s*key\w*|token\w*|certificate\w*|private\s*key\w*|crypto\s*key\w*)\b"
+    ],
+    "activation": [
+        r"\b(?:activation|deactivation|enablement|disablement|provisioning|deprovisioning|state\s+transition|lifecycle\s+state|status\s+toggle)\w*\b"
+    ],
+    "failover": [
+        r"\b(?:failover|switchover|redundancy\s+event|dr\s+event|disaster\s+recovery|standby\s+switch|replica\s+promotion|cluster\s+failover)\w*\b"
+    ],
+    "incident": [
+        r"\b(?:incident\w*|outage\w*|breach\w*|exception\w*|crash\w*|alert\s+log\w*|anomaly\s+log\w*|fault\s+event\w*|error\s+event\w*)\b"
+    ],
+    "calibration": [
+        r"\b(?:calibration|sensor\s+tuning|zero\s+offset|gain\s+adjust\w*|bias\s+correction|transducer\s+calibrat\w*|scale\s+calibrat\w*)\b"
+    ],
+    "transaction": [
+        r"\b(?:transaction\w*|payment\w*|settlement\w*|billing\s+event\w*|invoice\s+event\w*|refund\s+event\w*|order\s+event\w*|ledger\s+entry)\w*\b"
+    ],
+    "emergency_action": [
+        r"\b(?:emergency\s+(?:stop|halt|action|override|e-stop|shutdown)|surge\s+relief|hypothermia\s+halt|scram|interlock\s+trip)\w*\b"
+    ],
+    "execution": [
+        r"\b(?:execution\w*|deployment\w*|pipeline\s+run\w*|batch\s+job\w*|task\s+run\w*|build\s+run\w*)\b"
+    ]
+}
+
+def extract_history_subjects(text: str) -> Set[str]:
+    """Extracts specific history subject discriminator tags from text."""
+    t = text.lower()
+    subjects = set()
+    for sub_name, patterns in HISTORY_SUBJECT_PATTERNS.items():
+        if any(re.search(pat, t) for pat in patterns):
+            subjects.add(sub_name)
+    return subjects
 
 # Specialized capabilities that must be mutually aligned
 SPECIALIZED_CAPABILITIES = {
@@ -342,7 +386,16 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
         if (spec in actions_a and spec not in actions_b) or (spec in actions_b and spec not in actions_a):
             if spec == "history" and ("capture" in actions_a or "capture" in actions_b or bool(actions_a & actions_b)):
                 continue
+            if spec in ["export", "approve"] and bool(actions_a & actions_b):
+                continue
             return 0.05, f"Incompatible action divergence: specialized capability [{spec}] requires matching realization"
+
+    # 1b. History subject subtype disambiguation
+    if "history" in actions_a and "history" in actions_b:
+        sub_a = extract_history_subjects(text_a)
+        sub_b = extract_history_subjects(text_b)
+        if sub_a and sub_b and not (sub_a & sub_b):
+            return 0.05, f"Incompatible history subject divergence: [{', '.join(sub_a)}] vs [{', '.join(sub_b)}]"
 
     # 2. Incompatible cancellation vs creation/reservation realization
     if (("cancel" in actions_a and "cancel" not in actions_b and "reserve" in actions_b) or
@@ -583,6 +636,23 @@ def evaluate_behavioral_verification(source_text: str, test_text: str) -> Tuple[
         if spec in test_actions and spec not in src_actions:
             return 0.05, f"Verification failed: test asserts specialized behavior [{spec}] absent in requirement", False
             
+    # 1b. History Subject Subtype Matching for Verification
+    if "history" in src_actions and "history" in test_actions:
+        sub_src = extract_history_subjects(source_text)
+        sub_test = extract_history_subjects(test_text)
+        if sub_src and sub_test and not (sub_src & sub_test):
+            return 0.05, f"Verification failed: history subject mismatch [{', '.join(sub_src)}] vs [{', '.join(sub_test)}]", False
+
+    # 1c. Specific Behavioral Capability Mismatch Checks
+    if "export" in test_actions and "export" not in src_actions:
+        return 0.15, "Verification mismatch: test asserts export functionality rather than source requirement behavior", False
+        
+    if "approve" in src_actions and "history" not in src_actions and "approve" not in test_actions and bool(test_actions & {"history", "detect_dup"}):
+        return 0.10, "Verification mismatch: approval requirement cannot be verified by audit or duplicate test", False
+        
+    if "detect_dup" in src_actions and "approve" in test_actions and "detect_dup" not in test_actions:
+        return 0.10, "Verification mismatch: duplicate prevention requirement cannot be verified by approval test", False
+
     # 2. Extract Test Assertions / Expected Results
     # Look for expected results, assertions, verification clauses in test text
     expected_matches = re.findall(r'(?:expected\s+(?:result|outcome|behavior)|assert|verify\s+that|pass/fail|then)\s*[:\-]?\s*(.+?)(?:\.|$)', test_lower)
@@ -661,14 +731,48 @@ def evaluate_precise_change_impact(change_text: str, target_text: str, has_id_re
     
     if is_polarity and (shared_entities or shared_actions):
         return True, 0.95, f"Change alters polarity/policy: {pol_reason}"
-    if num_res == "MODIFIED_VALUE" and (shared_entities or shared_actions):
+    if num_res == "MODIFIED_VALUE":
+        cr_lower = change_text.lower()
+        tgt_lower = target_text.lower()
+        
+        is_latency_cr = any(k in cr_lower for k in ["latency", "response time", "ms", "millisecond", "seconds", "p95", "p99"])
+        is_latency_tgt = any(k in tgt_lower for k in ["latency", "response time", "ms", "millisecond", "seconds", "p95", "p99"])
+        
+        is_cap_cr = any(k in cr_lower for k in ["capacity", "throughput", "concurrent", "simultaneous", "users", "concurrency", "rps", "tps", "requests per second", "transactions per second"])
+        is_cap_tgt = any(k in tgt_lower for k in ["capacity", "throughput", "concurrent", "simultaneous", "users", "concurrency", "rps", "tps", "requests per second", "transactions per second", "sustain", "scale"])
+        
+        if is_latency_cr and not is_latency_tgt:
+            return False, 0.0, "Change impact rejected: latency modification does not impact non-latency target"
+        if is_cap_cr and not is_cap_tgt:
+            return False, 0.0, "Change impact rejected: capacity modification does not impact non-capacity target"
+
+        from utils.negation_detector import extract_numeric_constraints
+        cr_nums = [c["value"] for c in extract_numeric_constraints(change_text)]
+        tgt_nums = [c["value"] for c in extract_numeric_constraints(target_text)]
+        has_num_overlap = bool(set(cr_nums) & set(tgt_nums))
+
+        if not (shared_entities or shared_actions or has_num_overlap):
+            return False, 0.0, "Change impact rejected: numeric parameter modification has disjoint domain context and values"
+            
         return True, 0.90, f"Change modifies quantitative parameter: {num_reason}"
     if is_extension and (shared_entities or shared_actions):
         return True, 0.85, f"Change extends capability: {ext_reason}"
 
+    # 1b. History and Export Subtype checks for Change Impact
+    if "history" in cr_actions:
+        cr_sub = extract_history_subjects(change_text)
+        tgt_sub = extract_history_subjects(target_text)
+        if cr_sub and tgt_sub and (cr_sub & tgt_sub):
+            return True, 0.85, f"Change modifies history capability on subject [{', '.join(cr_sub & tgt_sub)}]"
+        if cr_sub and tgt_sub and not (cr_sub & tgt_sub):
+            return False, 0.0, f"Change impact rejected: history subject mismatch [{', '.join(cr_sub)}] vs [{', '.join(tgt_sub)}]"
+            
+    if "export" in cr_actions and "export" not in tgt_actions and not any(k in target_text.lower() for k in ["export", "download", "report", "csv", "pdf", "file"]):
+        return False, 0.0, "Change impact rejected: export modification does not impact non-export target"
+
     # 2. Incompatible action divergence (e.g. reconcile vs refund, export vs delete)
-    primary_cr = cr_actions - {"history", "manage"}
-    primary_tgt = tgt_actions - {"history", "manage"}
+    primary_cr = cr_actions - {"history", "manage", "capture"}
+    primary_tgt = tgt_actions - {"history", "manage", "capture"}
     if primary_cr and primary_tgt:
         for g1, g2 in INCOMPATIBLE_ACTION_PAIRS:
             if (primary_cr & g1 and primary_tgt & g2) or (primary_cr & g2 and primary_tgt & g1):
