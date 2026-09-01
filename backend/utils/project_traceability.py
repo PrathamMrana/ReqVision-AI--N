@@ -13,11 +13,14 @@ from utils.evidence_fusion import (
     evaluate_entity_alignment,
     evaluate_actor_alignment,
     evaluate_context_alignment,
+    evaluate_behavioral_verification,
+    evaluate_precise_change_impact,
     detect_missing_conditions,
     detect_capability_extension,
     compute_capability_identity_score,
     rank_and_disambiguate_candidates,
-    extract_governance_state
+    extract_governance_state,
+    build_capability_profile
 )
 
 # ── Semantic engine (singleton, loaded once) ──────────────────────────────────
@@ -274,12 +277,23 @@ def compute_hybrid_score(text_a_raw, text_b_raw, lexical_score, shared_intents):
     )
     return round(min(1.0, hybrid), 4), round(semantic_sim, 4), True, intent_score
 
-def find_candidate_relationships(source_art, candidate_arts, vectorizer, relationship_type="TRACEABLE_TO", min_match=0.18, min_partial=0.10):
+def find_candidate_relationships(
+    source_art,
+    candidate_arts,
+    vectorizer,
+    relationship_type="TRACEABLE_TO",
+    min_match=0.18,
+    min_partial=0.10,
+    upstream_canonical_map=None,
+    debug_log=None
+):
     """
     Finds all valid candidate relationships for a source artifact, supporting both
     valid implementation matches and intentional conflict matches.
-    Now uses HYBRID SCORING: semantic (60%) + lexical (25%) + intent (15%).
+    Uses HYBRID SCORING: semantic (60%) + lexical (25%) + intent (15%).
     Type-safe candidate filtering still happens BEFORE this function is called.
+    Enforces relationship-specific proof requirements for IMPLEMENTED_BY, REALIZED_BY,
+    VERIFIED_BY, AFFECTS, and RELATED_TO.
     Returns: list of relationship_records (list of dicts)
     """
     _sem_available = _semantic_engine.is_available()
@@ -308,12 +322,11 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
     if "hardware_nonsoftware" in source_intents:
         return [_make_unmapped("Administrative / physical non-software item excluded from engineering matrix", "High")]
 
-    is_ambiguous = any(phrase in source_art["text"].lower() for phrase in [
-        "not agreed", "did not agree", "unclear", "could mean",
-        "undecided", "ambiguous", "further review", "unresolved"
-    ])
-    if is_ambiguous:
-        return [_make_unmapped("Ambiguous requirement: consensus was not agreed in review", "Medium")]
+    # Multi-hop context inheritance: if source has upstream validated mapping, inherit context
+    if upstream_canonical_map and source_art.get("artifact_id") in upstream_canonical_map:
+        upstream_art = upstream_canonical_map[source_art["artifact_id"]]
+        upstream_intents = detect_domain_intents(upstream_art.get("text", ""))
+        source_intents = source_intents.union(upstream_intents)
 
     is_ambiguous = any(phrase in source_art["text"].lower() for phrase in [
         "not agreed", "did not agree", "unclear", "could mean",
@@ -332,6 +345,16 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             source_art["clean_text"], cand["clean_text"],
             source_art["text"], cand["text"]
         )
+
+        # Multi-hop context propagation
+        if upstream_canonical_map and source_art.get("artifact_id") in upstream_canonical_map:
+            upstream_art = upstream_canonical_map[source_art["artifact_id"]]
+            _, _, up_shared = compute_domain_lexical_similarity(
+                vectorizer,
+                upstream_art.get("clean_text", ""), cand["clean_text"],
+                upstream_art.get("text", ""), cand["text"]
+            )
+            shared_intents = shared_intents.union(up_shared)
 
         # Explicit ID reference check
         has_id_ref = bool(re.search(r'\b' + re.escape(cand["artifact_id"]) + r'\b', source_art["text"]))
@@ -365,6 +388,18 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             action_score, entity_score, context_score, actor_score, hybrid, shared_intents, has_id_ref=has_id_ref
         )
 
+        # ── 4b. Relationship-Specific Proof Scoring ──────────────────────────
+        rel_proof_score = 1.0
+        if relationship_type == "VERIFIED_BY":
+            v_score, v_reason, is_partial_v = evaluate_behavioral_verification(source_art["text"], cand["text"])
+            rel_proof_score = v_score
+            if is_partial_v:
+                has_missing = True
+                missing_reason = v_reason
+        elif relationship_type == "REALIZED_BY":
+            # For user stories, factor in actor goal alignment
+            rel_proof_score = (actor_score * 0.40) + (action_score * 0.30) + (entity_score * 0.30)
+
         # ── 5. Negation / polarity check (generic) ────────────────────────────
         polarity_conflict, polarity_reason = check_polarity_conflict(source_art["text"], cand["text"])
         numeric_result, numeric_reason = check_numeric_conflict(source_art["text"], cand["text"])
@@ -374,24 +409,10 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
         gov_state, gov_desc = extract_governance_state(source_art["text"])
 
         if relationship_type == "AFFECTS":
-            # Change requests must prove actual impact on the existing requirement:
-            # explicit reference, polarity reversal, numeric modification, capability extension, or exact capability impact
-            is_genuine_impact = (
-                has_id_ref
-                or has_conflict
-                or polarity_conflict
-                or numeric_result == "MODIFIED_VALUE"
-                or is_extension
-                or (cap_id_score >= 0.60 and action_score >= 0.50 and entity_score >= 0.35 and hybrid >= 0.45)
+            is_genuine_impact, imp_score, imp_reason = evaluate_precise_change_impact(
+                source_art["text"], cand["text"], has_id_ref=has_id_ref
             )
             if is_genuine_impact:
-                impact_evidence = (
-                    conflict_reason
-                    or polarity_reason
-                    or (f"Modified quantitative parameter ({numeric_reason})" if numeric_result == "MODIFIED_VALUE" else "")
-                    or (f"Capability extension ({extension_reason})" if is_extension else "")
-                    or f"Functional modification impact (Hybrid: {hybrid:.2f})"
-                )
                 matches_found.append({
                     "source_document": source_art["document_name"],
                     "source_type": source_art["document_type"],
@@ -405,14 +426,14 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
                     "target_text": cand["text"],
                     "relationship": relationship_type,
                     "status": "MATCHED",
-                    "similarity": max(hybrid, 0.50),
+                    "similarity": max(hybrid, imp_score, 0.50),
                     "semantic_similarity": sem_score,
                     "lexical_similarity": round(lex_score, 4),
-                    "hybrid_score": max(hybrid, 0.50),
+                    "hybrid_score": max(hybrid, imp_score, 0.50),
                     "intent_score": round(intent_val, 4),
                     "semantic_enabled": _sem_available,
-                    "confidence": "High" if has_id_ref else "Medium",
-                    "evidence": f"Change Request impact: {impact_evidence}"
+                    "confidence": "High" if has_id_ref or imp_score >= 0.90 else "Medium",
+                    "evidence": f"Change Request impact: {imp_reason}"
                 })
                 continue
             else:
@@ -505,6 +526,7 @@ def find_candidate_relationships(source_art, candidate_arts, vectorizer, relatio
             "extension_reason": extension_reason,
             "num_result": numeric_result,
             "num_reason": numeric_reason,
+            "relationship_proof_score": rel_proof_score,
             "evidence": evidence_str,
             "shared_intents": shared_intents
         })
@@ -766,30 +788,43 @@ def analyze_project_documents_traceability(project_documents):
     mom_list = [a for a in all_artifacts if a["document_type"] == "MEETING_MINUTES" or a["artifact_type"] in ["DECISION", "ACTION_ITEM"]]
 
     traceability_relationships = []
+    upstream_canonical_map = {}
     
     # 1. BRD -> SRS (TRACEABLE_TO)
     for brd in brd_list:
-        rels = find_candidate_relationships(brd, srs_list, vectorizer, relationship_type="TRACEABLE_TO")
+        rels = find_candidate_relationships(brd, srs_list, vectorizer, relationship_type="TRACEABLE_TO", upstream_canonical_map=upstream_canonical_map)
         traceability_relationships.extend(rels)
+        for r in rels:
+            if r.get("status") in ["MATCHED", "PARTIAL"] and r.get("target_artifact") != "—":
+                upstream_canonical_map[r["target_artifact"]] = brd
 
     # 2. SRS -> FRD (IMPLEMENTED_BY)
     # Candidate pool MUST strictly be FUNCTIONAL_SPECIFICATION artifacts from FRD
     srs_functional_list = [s for s in srs_list if s["artifact_type"] == "FUNCTIONAL_REQUIREMENT"]
     for srs in srs_functional_list:
-        rels = find_candidate_relationships(srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY")
+        rels = find_candidate_relationships(srs, frd_list, vectorizer, relationship_type="IMPLEMENTED_BY", upstream_canonical_map=upstream_canonical_map)
         traceability_relationships.extend(rels)
+        for r in rels:
+            if r.get("status") in ["MATCHED", "PARTIAL"] and r.get("target_artifact") != "—":
+                upstream_canonical_map[r["target_artifact"]] = srs
 
     # 3. SRS / FRD -> User Story (REALIZED_BY)
     # Candidate pool MUST strictly be USER_STORY artifacts
     for srs in srs_list:
-        rels = find_candidate_relationships(srs, us_list, vectorizer, relationship_type="REALIZED_BY")
+        rels = find_candidate_relationships(srs, us_list, vectorizer, relationship_type="REALIZED_BY", upstream_canonical_map=upstream_canonical_map)
         traceability_relationships.extend(rels)
+        for r in rels:
+            if r.get("status") in ["MATCHED", "PARTIAL"] and r.get("target_artifact") != "—":
+                upstream_canonical_map[r["target_artifact"]] = srs
 
     # 4. User Story -> Test Case (VERIFIED_BY)
     # Candidate pool MUST strictly be TEST_CASE artifacts from TEST_CASE documents
     for us in us_list:
-        rels = find_candidate_relationships(us, tc_list, vectorizer, relationship_type="VERIFIED_BY")
+        rels = find_candidate_relationships(us, tc_list, vectorizer, relationship_type="VERIFIED_BY", upstream_canonical_map=upstream_canonical_map)
         traceability_relationships.extend(rels)
+        for r in rels:
+            if r.get("status") in ["MATCHED", "PARTIAL"] and r.get("target_artifact") != "—":
+                upstream_canonical_map[r["target_artifact"]] = us
 
     # 5. Change Requests -> Requirements (AFFECTS)
     cr_impacts = []
