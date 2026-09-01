@@ -158,9 +158,9 @@ def extract_numeric_constraints(text: str) -> List[Dict]:
     constraints = []
     t = text.lower()
 
-    pattern = r'(\d+(?:\.\d+)?)\s*(%|ms|seconds?\b|sec\b|minutes?\b|hours?\b|days?\b|users?\b|concurrent\b|simultaneous\b|books?\b|seats?\b|attempts?\b|items?\b|records?\b)?'
+    pattern = r'(\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?)\s*(%|ms|seconds?\b|sec\b|minutes?\b|hours?\b|days?\b|users?\b|concurrent\b|simultaneous\b|books?\b|seats?\b|attempts?\b|items?\b|records?\b)?'
     for m in re.finditer(pattern, t):
-        value_str = m.group(1)
+        value_str = m.group(1).replace(',', '')
         unit = (m.group(2) or '').strip()
         start = max(0, m.start() - 35)
         end = min(len(t), m.end() + 35)

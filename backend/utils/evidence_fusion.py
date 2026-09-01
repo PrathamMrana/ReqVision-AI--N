@@ -125,8 +125,8 @@ ACTION_PATTERNS = {
         r"\bflir\b", r"\bedf\b", r"\bimage\w*\b"
     ],
     "detect_dup": [
-        r"\b(?:detect|identify|find|check|recognize|block|prevent|reject|discard|filter|stop|flag|dedup)\w*(?:\s+\w+){0,3}\s+(?:duplicate|redundant)\w*\b",
-        r"\bduplicate\s+(?:check|warning|receipt|claim|image|packet|sensor|telemetry|waypoint|flight|key|request|message|material)\w*\b",
+        r"\b(?:detect|identify|find|check|recognize|block|prevent|reject|discard|drop|filter|stop|flag|dedup)\w*(?:\s+\w+){0,3}\s+(?:duplicate|redundant|repeated)\w*\b",
+        r"\bduplicate\s+(?:check|warning|receipt|claim|image|packet|sensor|telemetry|waypoint|flight|key|request|message|material|token)\w*\b",
         r"\bdedup\w*\b", r"\bdrop\s+redundant\b"
     ],
     "prevent_conflict": [
@@ -137,7 +137,8 @@ ACTION_PATTERNS = {
         r"\bschedule\s+collision\b"
     ],
     "history": [
-        r"\b(?:audit|repair|maintenance|calibration|version|transaction|change)\s+history\b",
+        r"\b(?:audit|repair|maintenance|calibration|version|transaction|change|activation|operation|access|modification)\s+history\b",
+        r"\b(?:record|archive|log|maintain|audit|track)\w*(?:\s+\w+){0,3}\s+(?:history|trail|log|records|ledger)\w*\b",
         r"\baudit\s+trail\b", r"\bhistory\s+log\w*\b", r"\bview\s+history\b",
         r"\btrack\s+history\b", r"\bhistorical\s+audit\b", r"\bpast\s+maintenance\b",
         r"\bpast\s+repair\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b",
@@ -193,9 +194,9 @@ CONTEXT_PATTERNS = {
 # 1. AUDIT != PREVENT, 2. APPROVE != BLOCK, 3. MONITOR != DETECT, 4. DISPLAY != ANALYZE,
 # 5. RECORD != EXECUTE, 6. SEARCH != EXPORT, 7. DETECT != DISPLAY, 8. NOTIFY != CONFIGURE, 9. MEASURE != CONTROL
 INCOMPATIBLE_ACTION_PAIRS = [
-    # 1. AUDIT != PREVENT
-    ({"history"}, {"detect_dup"}),
-    ({"history"}, {"prevent_conflict"}),
+    # 1. AUDIT / RECORD != PREVENT
+    ({"history", "capture"}, {"detect_dup"}),
+    ({"history", "capture"}, {"prevent_conflict"}),
     # 2. APPROVE != BLOCK / CANCEL / EMERGENCY_STOP
     ({"approve"}, {"cancel"}),
     ({"approve"}, {"emergency_stop"}),
@@ -203,7 +204,7 @@ INCOMPATIBLE_ACTION_PAIRS = [
     ({"approve"}, {"manage"}),
     ({"approve"}, {"fault_report"}),
     ({"approve"}, {"detect_dup"}),
-    ({"approve"}, {"history"}),
+    ({"approve"}, {"history", "capture"}),
     # 3. MONITOR != DETECT
     ({"track"}, {"detect_violation"}),
     ({"track"}, {"detect_dup"}),
@@ -339,6 +340,8 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
     # 1. Specialized capability mutual alignment
     for spec in SPECIALIZED_CAPABILITIES:
         if (spec in actions_a and spec not in actions_b) or (spec in actions_b and spec not in actions_a):
+            if spec == "history" and ("capture" in actions_a or "capture" in actions_b or bool(actions_a & actions_b)):
+                continue
             return 0.05, f"Incompatible action divergence: specialized capability [{spec}] requires matching realization"
 
     # 2. Incompatible cancellation vs creation/reservation realization
