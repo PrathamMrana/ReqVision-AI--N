@@ -141,8 +141,11 @@ ACTION_PATTERNS = {
         r"\b(?:record|archive|log|maintain|audit|track|store|capture|save|keep)\w*(?:\s+\w+){0,4}\s+(?:history|trail|log|records|ledger|snapshots?)\w*\b",
         r"\baudit\s+trail\b", r"\bhistory\s+log\w*\b", r"\bview\s+history\b",
         r"\btrack\s+history\b", r"\bhistorical\s+audit\b", r"\bpast\s+maintenance\b",
-        r"\bpast\s+repair\b", r"\bvoltage\s+adjust\w*\b", r"\bcalibration\s+audit\b",
-        r"\bledger\b", r"\bimmutable\b", r"\bsnapshot\s+history\b"
+        r"\bledger\b", r"\bimmutable\b", r"\bsnapshot\s+history\b",
+        r"\b(?:search|find|view|retrieve|query|browse|filter|inspect|lookup|export)[-_\s/]+history\b",
+        r"\bhistory[-_\s/]+(?:search|query|retrieval|view|lookup|log|trail|test)\b",
+        r"\b(?:snapshot|config|configuration|rule|approval|credential|incident|event|transaction|audit)[-_\s/\w]{0,25}history\b",
+        r"\bhistory\b"
     ],
     "calibrate": [
         r"\bcalibrat\w*\b", r"\bzero\s+offset\b", r"\bgain\s+adjust\w*\b",
@@ -381,21 +384,21 @@ def evaluate_action_alignment(text_a: str, text_b: str) -> Tuple[float, str]:
     if not actions_a or not actions_b:
         return 0.50, "Neutral action alignment"
 
-    # 1. Specialized capability mutual alignment
+    # 1. History subject subtype disambiguation (FIRST-CLASS CHECK)
+    sub_a = extract_history_subjects(text_a)
+    sub_b = extract_history_subjects(text_b)
+    if sub_a and sub_b and not (sub_a & sub_b):
+        return 0.05, f"Incompatible history subject divergence: [{', '.join(sub_a)}] vs [{', '.join(sub_b)}]"
+
+    # 1a. Specialized capability mutual alignment
     for spec in SPECIALIZED_CAPABILITIES:
         if (spec in actions_a and spec not in actions_b) or (spec in actions_b and spec not in actions_a):
             if spec == "history" and ("capture" in actions_a or "capture" in actions_b or bool(actions_a & actions_b)):
-                continue
+                if not (sub_a and sub_b and not (sub_a & sub_b)):
+                    continue
             if spec in ["export", "approve"] and bool(actions_a & actions_b):
                 continue
             return 0.05, f"Incompatible action divergence: specialized capability [{spec}] requires matching realization"
-
-    # 1b. History subject subtype disambiguation
-    if "history" in actions_a and "history" in actions_b:
-        sub_a = extract_history_subjects(text_a)
-        sub_b = extract_history_subjects(text_b)
-        if sub_a and sub_b and not (sub_a & sub_b):
-            return 0.05, f"Incompatible history subject divergence: [{', '.join(sub_a)}] vs [{', '.join(sub_b)}]"
 
     # 2. Incompatible cancellation vs creation/reservation realization
     if (("cancel" in actions_a and "cancel" not in actions_b and "reserve" in actions_b) or
@@ -629,26 +632,30 @@ def evaluate_behavioral_verification(source_text: str, test_text: str) -> Tuple[
     test_lower = test_text.lower()
     src_lower = source_text.lower()
     
-    # 1. Specialized Capability Mutual Assertion
+    # 1. History Subject Subtype Matching for Verification (FIRST-CLASS CHECK)
+    sub_src = extract_history_subjects(source_text)
+    sub_test = extract_history_subjects(test_text)
+    if sub_src and sub_test and not (sub_src & sub_test):
+        return 0.05, f"Verification failed: history subject mismatch [{', '.join(sub_src)}] vs [{', '.join(sub_test)}]", False
+
+    # 1a. Specialized Capability Mutual Assertion
     for spec in SPECIALIZED_CAPABILITIES:
         if spec in src_actions and spec not in test_actions:
             return 0.05, f"Verification failed: test does not assert specialized behavior [{spec}]", False
         if spec in test_actions and spec not in src_actions:
             return 0.05, f"Verification failed: test asserts specialized behavior [{spec}] absent in requirement", False
-            
-    # 1b. History Subject Subtype Matching for Verification
-    if "history" in src_actions and "history" in test_actions:
-        sub_src = extract_history_subjects(source_text)
-        sub_test = extract_history_subjects(test_text)
-        if sub_src and sub_test and not (sub_src & sub_test):
-            return 0.05, f"Verification failed: history subject mismatch [{', '.join(sub_src)}] vs [{', '.join(sub_test)}]", False
 
-    # 1c. Specific Behavioral Capability Mismatch Checks
-    if "export" in test_actions and "export" not in src_actions:
-        return 0.15, "Verification mismatch: test asserts export functionality rather than source requirement behavior", False
-        
+    # 1b. Specific Behavioral Capability Mismatch Checks
+    # Audit requirement cannot be verified by pure approval test
+    if "history" in src_actions and "approve" in test_actions and "history" not in test_actions:
+        return 0.05, "Verification failed: audit/history requirement cannot be verified by approval test", False
+
+    # Approval requirement cannot be verified by pure audit or duplicate test
     if "approve" in src_actions and "history" not in src_actions and "approve" not in test_actions and bool(test_actions & {"history", "detect_dup"}):
         return 0.10, "Verification mismatch: approval requirement cannot be verified by audit or duplicate test", False
+
+    if "export" in test_actions and "export" not in src_actions:
+        return 0.15, "Verification mismatch: test asserts export functionality rather than source requirement behavior", False
         
     if "detect_dup" in src_actions and "approve" in test_actions and "detect_dup" not in test_actions:
         return 0.10, "Verification mismatch: duplicate prevention requirement cannot be verified by approval test", False
@@ -724,7 +731,40 @@ def evaluate_precise_change_impact(change_text: str, target_text: str, has_id_re
     shared_actions = cr_actions & tgt_actions
     shared_entities = cr_entities & tgt_entities
     
-    # 1. Check for specific parameter modification, polarity conflict, or capability extension first
+    cr_lower = change_text.lower()
+    tgt_lower = target_text.lower()
+
+    # NFR Capacity / Concurrency Impact Rule
+    is_cap_cr = bool(re.search(r'\b(?:capacity|throughput|concurrent|simultaneous|concurrency|rps|tps|requests\s+per\s+second|transactions\s+per\s+second)\b', cr_lower))
+    is_cap_tgt = bool(re.search(r'\b(?:capacity|throughput|concurrent|simultaneous|concurrency|rps|tps|requests\s+per\s+second|transactions\s+per\s+second|sustain|scale)\b', tgt_lower))
+    if is_cap_cr and not is_cap_tgt:
+        return False, 0.0, "Change impact rejected: capacity modification does not impact non-capacity target"
+
+    # NFR Latency / Performance Impact Rule (Use word boundaries to prevent 'ms' in 'sms' false positive)
+    is_latency_cr = bool(re.search(r'\b(?:latency|response\s+time|milliseconds?|p95|p99|ms)\b', cr_lower))
+    is_latency_tgt = bool(re.search(r'\b(?:latency|response\s+time|milliseconds?|p95|p99|ms|speed|round-trip)\b', tgt_lower))
+    if is_latency_cr and not is_latency_tgt:
+        return False, 0.0, "Change impact rejected: latency modification does not impact non-latency target"
+
+    # Predictive / Risk Scoring Impact Rule (Does not spread into operational lifecycle)
+    is_predictive_cr = bool(re.search(r'\b(?:predictive|risk-scoring|risk\s+scoring|incident-risk|scoring\s+model)\b', cr_lower))
+    is_predictive_tgt = bool(re.search(r'\b(?:predictive|risk-scoring|risk\s+scoring|incident-risk|scoring|risk\s+score|model)\b', tgt_lower))
+    if is_predictive_cr and not is_predictive_tgt:
+        return False, 0.0, "Change impact rejected: predictive risk scoring does not alter basic operational lifecycle target"
+
+    # Export / Report Impact Rule
+    is_export_cr = bool(re.search(r'\b(?:export|download\s+report|csv\s+export|pdf\s+export|data\s+dump)\b', cr_lower))
+    is_export_tgt = bool(re.search(r'\b(?:export|download|csv|pdf|file|report)\b', tgt_lower))
+    if is_export_cr and not is_export_tgt:
+        return False, 0.0, "Change impact rejected: export modification does not impact non-export target"
+
+    # History subject check for Change Requests
+    cr_sub = extract_history_subjects(change_text)
+    tgt_sub = extract_history_subjects(target_text)
+    if cr_sub and tgt_sub and not (cr_sub & tgt_sub):
+        return False, 0.0, f"Change impact rejected: history subject mismatch [{', '.join(cr_sub)}] vs [{', '.join(tgt_sub)}]"
+
+    # 1. Check for specific parameter modification, polarity conflict, or capability extension
     is_polarity, pol_reason = check_polarity_conflict(change_text, target_text)
     num_res, num_reason = check_numeric_conflict(change_text, target_text)
     is_extension, ext_reason = detect_capability_extension(change_text, target_text)
@@ -732,20 +772,6 @@ def evaluate_precise_change_impact(change_text: str, target_text: str, has_id_re
     if is_polarity and (shared_entities or shared_actions):
         return True, 0.95, f"Change alters polarity/policy: {pol_reason}"
     if num_res == "MODIFIED_VALUE":
-        cr_lower = change_text.lower()
-        tgt_lower = target_text.lower()
-        
-        is_latency_cr = any(k in cr_lower for k in ["latency", "response time", "ms", "millisecond", "seconds", "p95", "p99"])
-        is_latency_tgt = any(k in tgt_lower for k in ["latency", "response time", "ms", "millisecond", "seconds", "p95", "p99"])
-        
-        is_cap_cr = any(k in cr_lower for k in ["capacity", "throughput", "concurrent", "simultaneous", "users", "concurrency", "rps", "tps", "requests per second", "transactions per second"])
-        is_cap_tgt = any(k in tgt_lower for k in ["capacity", "throughput", "concurrent", "simultaneous", "users", "concurrency", "rps", "tps", "requests per second", "transactions per second", "sustain", "scale"])
-        
-        if is_latency_cr and not is_latency_tgt:
-            return False, 0.0, "Change impact rejected: latency modification does not impact non-latency target"
-        if is_cap_cr and not is_cap_tgt:
-            return False, 0.0, "Change impact rejected: capacity modification does not impact non-capacity target"
-
         from utils.negation_detector import extract_numeric_constraints
         cr_nums = [c["value"] for c in extract_numeric_constraints(change_text)]
         tgt_nums = [c["value"] for c in extract_numeric_constraints(target_text)]
@@ -758,17 +784,8 @@ def evaluate_precise_change_impact(change_text: str, target_text: str, has_id_re
     if is_extension and (shared_entities or shared_actions):
         return True, 0.85, f"Change extends capability: {ext_reason}"
 
-    # 1b. History and Export Subtype checks for Change Impact
-    if "history" in cr_actions:
-        cr_sub = extract_history_subjects(change_text)
-        tgt_sub = extract_history_subjects(target_text)
-        if cr_sub and tgt_sub and (cr_sub & tgt_sub):
-            return True, 0.85, f"Change modifies history capability on subject [{', '.join(cr_sub & tgt_sub)}]"
-        if cr_sub and tgt_sub and not (cr_sub & tgt_sub):
-            return False, 0.0, f"Change impact rejected: history subject mismatch [{', '.join(cr_sub)}] vs [{', '.join(tgt_sub)}]"
-            
-    if "export" in cr_actions and "export" not in tgt_actions and not any(k in target_text.lower() for k in ["export", "download", "report", "csv", "pdf", "file"]):
-        return False, 0.0, "Change impact rejected: export modification does not impact non-export target"
+    if "history" in cr_actions and cr_sub and tgt_sub and (cr_sub & tgt_sub):
+        return True, 0.85, f"Change modifies history capability on subject [{', '.join(cr_sub & tgt_sub)}]"
 
     # 2. Incompatible action divergence (e.g. reconcile vs refund, export vs delete)
     primary_cr = cr_actions - {"history", "manage", "capture"}
@@ -892,6 +909,12 @@ def evaluate_candidate_relevance_gate(
     tgt_spec = actions_b & SPECIALIZED_CAPABILITIES
     if src_spec and not (src_spec & tgt_spec) and not shared_intents:
         return False, f"Relevance Gate Rejected: Specialized capability [{', '.join(src_spec)}] missing in target"
+        
+    # History subject disambiguation (FIRST-CLASS CHECK)
+    src_sub = extract_history_subjects(source_text)
+    tgt_sub = extract_history_subjects(target_text)
+    if src_sub and tgt_sub and not (src_sub & tgt_sub):
+        return False, f"Relevance Gate Rejected: History subject mismatch [{', '.join(src_sub)}] vs [{', '.join(tgt_sub)}]"
 
     # 6. Entity and Action joint check
     ent_score, ent_reason = evaluate_entity_alignment(source_text, target_text)
